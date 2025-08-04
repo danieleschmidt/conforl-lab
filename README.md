@@ -258,9 +258,9 @@ Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 ```bibtex
 @software{conforl2025,
   title={ConfoRL Lab: Adaptive Conformal Risk Control for Reinforcement Learning},
-  author={Your Name and Collaborators},
+  author={Daniel Schmidt},
   year={2025},
-  url={https://github.com/yourusername/conforl-lab}
+  url={https://github.com/danieleschmidt/conforl-lab}
 }
 
 @article{conformal-risk-control2024,
