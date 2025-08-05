@@ -1,0 +1,27 @@
+# Core dependencies
+numpy>=1.21.0
+jax>=0.4.0
+jaxlib>=0.4.0
+torch>=2.0.0
+gymnasium>=0.28.0
+scipy>=1.8.0
+scikit-learn>=1.1.0
+
+# Data handling
+pandas>=1.4.0
+h5py>=3.7.0
+
+# Configuration
+pyyaml>=6.0
+hydra-core>=1.2.0
+
+# Logging and monitoring
+tensorboard>=2.10.0
+wandb>=0.13.0
+tqdm>=4.64.0
+
+# Typing
+typing-extensions>=4.3.0
+
+# Optional safety environments
+# safety-gym>=1.0.0  # Uncomment if needed
