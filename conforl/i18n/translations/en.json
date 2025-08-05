@@ -1,0 +1,61 @@
+{
+  "general": {
+    "error": "Error",
+    "warning": "Warning",
+    "info": "Information",
+    "success": "Success",
+    "loading": "Loading...",
+    "complete": "Complete",
+    "failed": "Failed",
+    "unknown": "Unknown"
+  },
+  "training": {
+    "started": "Training started",
+    "completed": "Training completed",
+    "episode": "Episode",
+    "step": "Step",
+    "reward": "Reward",
+    "risk": "Risk",
+    "bound": "Risk Bound",
+    "coverage": "Coverage", 
+    "progress": "Progress"
+  },
+  "risk": {
+    "low": "Low Risk",
+    "medium": "Medium Risk",
+    "high": "High Risk",
+    "critical": "Critical Risk",
+    "violation": "Risk Violation",
+    "certificate": "Risk Certificate",
+    "guarantee": "Safety Guarantee",
+    "bound_exceeded": "Risk bound exceeded",
+    "fallback_activated": "Fallback policy activated"
+  },
+  "deployment": {
+    "starting": "Starting deployment",
+    "stopping": "Stopping deployment",
+    "monitoring": "Monitoring active",
+    "alert": "Alert",
+    "emergency_stop": "Emergency stop activated",
+    "performance": "Performance",
+    "safety_intervention": "Safety intervention"
+  },
+  "config": {
+    "invalid": "Invalid configuration",
+    "missing": "Missing configuration",
+    "loaded": "Configuration loaded",
+    "saved": "Configuration saved",
+    "parameter": "Parameter",
+    "value": "Value"
+  },
+  "errors": {
+    "initialization_failed": "Initialization failed",
+    "connection_failed": "Connection failed",
+    "timeout": "Operation timed out",
+    "insufficient_data": "Insufficient data",
+    "invalid_input": "Invalid input",
+    "permission_denied": "Permission denied",
+    "file_not_found": "File not found",
+    "network_error": "Network error"
+  }
+}

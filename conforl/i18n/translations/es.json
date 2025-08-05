@@ -1,0 +1,61 @@
+{
+  "general": {
+    "error": "Error",
+    "warning": "Advertencia",
+    "info": "Información",
+    "success": "Éxito",
+    "loading": "Cargando...",
+    "complete": "Completo",
+    "failed": "Falló",
+    "unknown": "Desconocido"
+  },
+  "training": {
+    "started": "Entrenamiento iniciado",
+    "completed": "Entrenamiento completado",
+    "episode": "Episodio",
+    "step": "Paso",
+    "reward": "Recompensa",
+    "risk": "Riesgo",
+    "bound": "Límite de Riesgo",
+    "coverage": "Cobertura",
+    "progress": "Progreso"
+  },
+  "risk": {
+    "low": "Riesgo Bajo",
+    "medium": "Riesgo Medio",
+    "high": "Riesgo Alto",
+    "critical": "Riesgo Crítico",
+    "violation": "Violación de Riesgo",
+    "certificate": "Certificado de Riesgo",
+    "guarantee": "Garantía de Seguridad",
+    "bound_exceeded": "Límite de riesgo excedido",
+    "fallback_activated": "Política de respaldo activada"
+  },
+  "deployment": {
+    "starting": "Iniciando despliegue",
+    "stopping": "Deteniendo despliegue",
+    "monitoring": "Monitoreo activo",
+    "alert": "Alerta",
+    "emergency_stop": "Parada de emergencia activada",
+    "performance": "Rendimiento",
+    "safety_intervention": "Intervención de seguridad"
+  },
+  "config": {
+    "invalid": "Configuración inválida",
+    "missing": "Configuración faltante",
+    "loaded": "Configuración cargada",
+    "saved": "Configuración guardada",
+    "parameter": "Parámetro",
+    "value": "Valor"
+  },
+  "errors": {
+    "initialization_failed": "Falló la inicialización",
+    "connection_failed": "Falló la conexión",
+    "timeout": "Operación expiró",
+    "insufficient_data": "Datos insuficientes",
+    "invalid_input": "Entrada inválida",
+    "permission_denied": "Permiso denegado",
+    "file_not_found": "Archivo no encontrado",
+    "network_error": "Error de red"
+  }
+}
