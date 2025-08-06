@@ -8,9 +8,21 @@ __version__ = "0.1.0"
 __author__ = "Daniel Schmidt"
 __email__ = "daniel@terragonlabs.ai"
 
-from .algorithms import *
-from .risk import *
-from .deploy import *
+# Conditional imports to avoid dependency issues during development
+try:
+    from .algorithms import *
+except ImportError:
+    pass
+
+try:
+    from .risk import *
+except ImportError:
+    pass
+
+try:
+    from .deploy import *
+except ImportError:
+    pass
 
 __all__ = [
     # Core algorithms
