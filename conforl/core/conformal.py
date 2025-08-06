@@ -1,9 +1,53 @@
 """Core conformal prediction implementations."""
 
-import numpy as np
 from abc import ABC, abstractmethod
 from typing import Callable, Optional, Tuple, Union
 import time
+
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+    # Minimal numpy-like interface for basic functionality
+    class np:
+        @staticmethod
+        def array(data):
+            return list(data) if hasattr(data, '__iter__') else [data]
+        @staticmethod
+        def abs(data):
+            if hasattr(data, '__iter__'):
+                return [abs(x) for x in data]
+            return abs(data)
+        @staticmethod
+        def quantile(data, q):
+            sorted_data = sorted(data)
+            n = len(sorted_data)
+            if n == 0:
+                return 0.0
+            index = int(q * n)
+            return sorted_data[min(index, n-1)]
+        @staticmethod
+        def ceil(x):
+            return int(x) + (1 if x > int(x) else 0)
+        @staticmethod
+        def min(data, value):
+            if hasattr(data, '__iter__'):
+                return [min(x, value) for x in data]
+            return min(data, value)
+        @staticmethod
+        def column_stack(arrays):
+            return list(zip(*arrays))
+        @staticmethod
+        def zeros(n):
+            return [0.0] * n
+        @staticmethod
+        def sqrt(x):
+            return x ** 0.5
+        @staticmethod
+        def log(x):
+            import math
+            return math.log(x)
 
 from .types import RiskCertificate, ConformalSet
 
@@ -32,8 +76,8 @@ class ConformalPredictor(ABC):
     @abstractmethod
     def calibrate(
         self,
-        calibration_data: np.ndarray,
-        calibration_scores: np.ndarray
+        calibration_data,  # np.ndarray when available
+        calibration_scores  # np.ndarray when available
     ) -> None:
         """Calibrate the conformal predictor.
         
@@ -46,7 +90,7 @@ class ConformalPredictor(ABC):
     @abstractmethod
     def predict(
         self,
-        test_data: np.ndarray
+        test_data  # np.ndarray when available
     ) -> ConformalSet:
         """Generate conformal prediction set.
         
@@ -80,16 +124,16 @@ class SplitConformalPredictor(ConformalPredictor):
         
     def _default_score_function(
         self,
-        y_true: np.ndarray,
-        y_pred: np.ndarray
-    ) -> np.ndarray:
+        y_true,  # np.ndarray when available
+        y_pred   # np.ndarray when available
+    ):
         """Default nonconformity score: absolute residual."""
         return np.abs(y_true - y_pred)
     
     def calibrate(
         self,
-        calibration_data: np.ndarray,
-        calibration_scores: np.ndarray
+        calibration_data,  # np.ndarray when available
+        calibration_scores  # np.ndarray when available
     ) -> None:
         """Calibrate using split conformal method.
         
@@ -108,9 +152,9 @@ class SplitConformalPredictor(ConformalPredictor):
         
     def predict(
         self,
-        test_predictions: np.ndarray,
+        test_predictions,  # np.ndarray when available
         return_scores: bool = False
-    ) -> Union[ConformalSet, Tuple[ConformalSet, np.ndarray]]:
+    ):
         """Generate split conformal prediction intervals.
         
         Args:
@@ -144,8 +188,8 @@ class SplitConformalPredictor(ConformalPredictor):
     
     def get_risk_certificate(
         self,
-        test_data: np.ndarray,
-        risk_function: Callable[[np.ndarray], np.ndarray]
+        test_data,  # np.ndarray when available
+        risk_function
     ) -> RiskCertificate:
         """Generate formal risk certificate.
         
