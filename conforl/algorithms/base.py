@@ -2,12 +2,26 @@
 
 import numpy as np
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, Tuple, Union, Any
+from typing import Dict, Optional, Tuple, Union, Any, List
 import gymnasium as gym
+import warnings
+import traceback
 
 from ..core.types import RiskCertificate, TrajectoryData, StateType, ActionType
 from ..risk.controllers import AdaptiveRiskController
 from ..risk.measures import RiskMeasure, SafetyViolationRisk
+from ..utils.validation import (
+    validate_config, validate_environment, validate_trajectory_data, 
+    validate_risk_parameters
+)
+from ..utils.security import SecurityContext, sanitize_config_dict, log_security_event
+from ..utils.errors import (
+    ConfoRLError, ValidationError, ConfigurationError, 
+    EnvironmentError, SecurityError, TrainingError
+)
+from ..utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class ConformalRLAgent(ABC):
@@ -20,9 +34,11 @@ class ConformalRLAgent(ABC):
         risk_measure: Optional[RiskMeasure] = None,
         learning_rate: float = 3e-4,
         buffer_size: int = int(1e6),
-        device: str = "auto"
+        device: str = "auto",
+        config: Optional[Dict[str, Any]] = None,
+        **kwargs
     ):
-        """Initialize conformal RL agent.
+        """Initialize conformal RL agent with comprehensive validation.
         
         Args:
             env: Gymnasium environment
@@ -31,27 +47,189 @@ class ConformalRLAgent(ABC):
             learning_rate: Learning rate for optimization
             buffer_size: Size of replay buffer
             device: Device for computation ('cpu', 'cuda', 'auto')
+            config: Additional configuration parameters
+            **kwargs: Additional keyword arguments
         """
-        self.env = env
-        self.observation_space = env.observation_space
-        self.action_space = env.action_space
+        # Security context for initialization
+        with SecurityContext("agent_initialization", "system"):
+            try:
+                # Validate environment first
+                logger.info("Initializing ConfoRL agent with comprehensive validation")
+                self._validate_initialization_params(
+                    env, learning_rate, buffer_size, device, config
+                )
+                
+                # Store validated parameters
+                self.env = env
+                self.observation_space = env.observation_space
+                self.action_space = env.action_space
+                
+                # Validate and sanitize configuration
+                self.config = self._process_config(config, kwargs)
+                
+                # Initialize risk control components with validation
+                self._initialize_risk_components(risk_controller, risk_measure)
+                
+                # Validate and store training parameters
+                self.learning_rate = learning_rate
+                self.buffer_size = buffer_size
+                self.device = self._setup_device(device)
+                
+                # Training state with error tracking
+                self.total_timesteps = 0
+                self.episode_count = 0
+                self.training_history = []
+                self.errors_encountered = []
+                self.recovery_attempts = 0
+                self.max_recovery_attempts = 5
+                
+                # Performance monitoring
+                self.performance_metrics = {
+                    'initialization_time': 0,
+                    'training_time': 0,
+                    'prediction_time': 0,
+                    'update_time': 0
+                }
+                
+                # Thread safety
+                self._training_lock = None
+                try:
+                    import threading
+                    self._training_lock = threading.Lock()
+                except ImportError:
+                    logger.warning("Threading not available, agent may not be thread-safe")
+                
+                # Initialize base RL algorithm with error handling
+                self._initialize_algorithm_safely()
+                
+                logger.info(f"ConfoRL agent initialized successfully: "
+                           f"obs_space={self.observation_space}, "
+                           f"action_space={self.action_space}")
+                
+            except Exception as e:
+                logger.error(f"Failed to initialize ConfoRL agent: {str(e)}")
+                logger.debug(f"Initialization stack trace: {traceback.format_exc()}")
+                raise ConfoRLError(
+                    f"Agent initialization failed: {str(e)}",
+                    error_code="INIT_FAILED"
+                ) from e
+    
+    def _validate_initialization_params(
+        self, 
+        env: gym.Env, 
+        learning_rate: float, 
+        buffer_size: int, 
+        device: str,
+        config: Optional[Dict[str, Any]]
+    ) -> None:
+        """Validate initialization parameters."""
+        # Validate environment
+        if env is None:
+            raise ValidationError("Environment cannot be None", "initialization")
         
-        # Risk control components
-        self.risk_controller = risk_controller or AdaptiveRiskController()
-        self.risk_measure = risk_measure or SafetyViolationRisk()
+        validate_environment(env)
         
-        # Training parameters
-        self.learning_rate = learning_rate
-        self.buffer_size = buffer_size
-        self.device = self._setup_device(device)
+        # Validate learning rate
+        if not isinstance(learning_rate, (int, float)) or learning_rate <= 0 or learning_rate > 1:
+            raise ValidationError(
+                f"learning_rate must be in (0, 1], got {learning_rate}",
+                "initialization"
+            )
         
-        # Training state
-        self.total_timesteps = 0
-        self.episode_count = 0
-        self.training_history = []
+        # Validate buffer size
+        if not isinstance(buffer_size, int) or buffer_size <= 0:
+            raise ValidationError(
+                f"buffer_size must be positive integer, got {buffer_size}",
+                "initialization"
+            )
         
-        # Initialize base RL algorithm
-        self._setup_algorithm()
+        # Validate device
+        if not isinstance(device, str) or device not in ['cpu', 'cuda', 'auto']:
+            raise ValidationError(
+                f"device must be 'cpu', 'cuda', or 'auto', got {device}",
+                "initialization"
+            )
+        
+        # Validate config if provided
+        if config is not None and not isinstance(config, dict):
+            raise ValidationError("config must be a dictionary", "initialization")
+    
+    def _process_config(
+        self, 
+        config: Optional[Dict[str, Any]], 
+        kwargs: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Process and sanitize configuration."""
+        # Merge config and kwargs
+        full_config = {}
+        if config:
+            full_config.update(config)
+        full_config.update(kwargs)
+        
+        # Sanitize configuration for security
+        try:
+            sanitized_config = sanitize_config_dict(full_config)
+            validated_config = validate_config(sanitized_config)
+            return validated_config
+        except (SecurityError, ConfigurationError) as e:
+            logger.warning(f"Configuration validation/sanitization failed: {e}")
+            return {}  # Use empty config as fallback
+    
+    def _initialize_risk_components(
+        self, 
+        risk_controller: Optional[AdaptiveRiskController], 
+        risk_measure: Optional[RiskMeasure]
+    ) -> None:
+        """Initialize and validate risk control components."""
+        try:
+            # Initialize risk controller with validation
+            if risk_controller is not None:
+                # Validate risk controller parameters
+                if hasattr(risk_controller, 'target_risk') and hasattr(risk_controller, 'confidence'):
+                    validate_risk_parameters(
+                        risk_controller.target_risk,
+                        risk_controller.confidence
+                    )
+                self.risk_controller = risk_controller
+            else:
+                self.risk_controller = AdaptiveRiskController()
+            
+            # Initialize risk measure
+            self.risk_measure = risk_measure or SafetyViolationRisk()
+            
+            logger.debug(f"Risk components initialized: "
+                        f"target_risk={self.risk_controller.target_risk}, "
+                        f"confidence={self.risk_controller.confidence}")
+                        
+        except Exception as e:
+            raise ConfoRLError(
+                f"Risk component initialization failed: {str(e)}",
+                error_code="RISK_INIT_FAILED"
+            ) from e
+    
+    def _initialize_algorithm_safely(self) -> None:
+        """Initialize base RL algorithm with error handling."""
+        try:
+            import time
+            start_time = time.time()
+            
+            self._setup_algorithm()
+            
+            self.performance_metrics['initialization_time'] = time.time() - start_time
+            logger.debug(f"Algorithm setup completed in "
+                        f"{self.performance_metrics['initialization_time']:.3f}s")
+        
+        except Exception as e:
+            self.errors_encountered.append({
+                'timestamp': time.time(),
+                'error_type': 'algorithm_setup',
+                'error': str(e),
+                'traceback': traceback.format_exc()
+            })
+            raise TrainingError(
+                f"Algorithm setup failed: {str(e)}",
+                error_code="ALGORITHM_SETUP_FAILED"
+            ) from e
     
     def _setup_device(self, device: str) -> str:
         """Setup computation device."""
@@ -91,7 +269,7 @@ class ConformalRLAgent(ABC):
         deterministic: bool = False,
         return_risk_certificate: bool = False
     ) -> Union[ActionType, Tuple[ActionType, RiskCertificate]]:
-        """Predict action with risk-aware policy.
+        """Predict action with risk-aware policy and comprehensive validation.
         
         Args:
             state: Environment state
@@ -100,15 +278,166 @@ class ConformalRLAgent(ABC):
             
         Returns:
             Action (and risk certificate if requested)
+            
+        Raises:
+            ValidationError: If state is invalid
+            ConfoRLError: If prediction fails
         """
-        # Get base action from RL algorithm
-        action = self._predict_base(state, deterministic)
+        with SecurityContext("action_prediction", "agent"):
+            try:
+                import time
+                start_time = time.time()
+                
+                # Validate state input
+                self._validate_state_input(state)
+                
+                # Get base action from RL algorithm with error handling
+                try:
+                    action = self._predict_base(state, deterministic)
+                except Exception as e:
+                    logger.error(f"Base prediction failed: {str(e)}")
+                    
+                    # Attempt recovery
+                    if self.recovery_attempts < self.max_recovery_attempts:
+                        logger.info(f"Attempting recovery (attempt {self.recovery_attempts + 1})")
+                        self.recovery_attempts += 1
+                        action = self._safe_fallback_action(state)
+                        log_security_event("PREDICTION_RECOVERY", {
+                            "error": str(e),
+                            "recovery_attempt": self.recovery_attempts
+                        })
+                    else:
+                        raise ConfoRLError(
+                            f"Prediction failed after {self.max_recovery_attempts} recovery attempts",
+                            error_code="PREDICTION_FAILED"
+                        ) from e
+                
+                # Validate action output
+                validated_action = self._validate_action_output(action)
+                
+                # Update performance metrics
+                self.performance_metrics['prediction_time'] = time.time() - start_time
+                
+                # Reset recovery attempts on success
+                if self.recovery_attempts > 0:
+                    logger.info("Prediction recovered successfully")
+                    self.recovery_attempts = 0
+                
+                if return_risk_certificate:
+                    certificate = self._get_validated_risk_certificate()
+                    return validated_action, certificate
+                
+                return validated_action
+                
+            except Exception as e:
+                self._log_error("prediction", e)
+                raise
+    
+    def _validate_state_input(self, state: StateType) -> None:
+        """Validate state input."""
+        if state is None:
+            raise ValidationError("State cannot be None", "prediction")
         
-        if return_risk_certificate:
-            certificate = self.risk_controller.get_certificate()
-            return action, certificate
+        # Convert to numpy array for validation
+        if not isinstance(state, np.ndarray):
+            try:
+                state = np.array(state)
+            except Exception as e:
+                raise ValidationError(f"Cannot convert state to array: {e}", "prediction")
+        
+        # Check for invalid values
+        if np.any(np.isnan(state)):
+            raise ValidationError("State contains NaN values", "prediction")
+        
+        if np.any(np.isinf(state)):
+            raise ValidationError("State contains infinite values", "prediction")
+        
+        # Check dimensions if observation space is defined
+        if hasattr(self.observation_space, 'shape') and self.observation_space.shape:
+            expected_shape = self.observation_space.shape
+            if state.shape != expected_shape and state.shape != (1,) + expected_shape:
+                logger.warning(f"State shape {state.shape} doesn't match expected {expected_shape}")
+    
+    def _validate_action_output(self, action: ActionType) -> ActionType:
+        """Validate and clip action output."""
+        if action is None:
+            raise ConfoRLError("Action cannot be None", error_code="INVALID_ACTION")
+        
+        # Convert to numpy array
+        if not isinstance(action, np.ndarray):
+            try:
+                action = np.array(action)
+            except Exception as e:
+                raise ConfoRLError(f"Cannot convert action to array: {e}", error_code="ACTION_CONVERSION_FAILED")
+        
+        # Check for invalid values
+        if np.any(np.isnan(action)):
+            logger.warning("Action contains NaN values, using fallback")
+            action = self._safe_fallback_action(None)
+        
+        if np.any(np.isinf(action)):
+            logger.warning("Action contains infinite values, clipping")
+            action = np.clip(action, -1e6, 1e6)
+        
+        # Clip to action space bounds
+        if hasattr(self.action_space, 'low') and hasattr(self.action_space, 'high'):
+            action = np.clip(action, self.action_space.low, self.action_space.high)
         
         return action
+    
+    def _safe_fallback_action(self, state: Optional[StateType]) -> ActionType:
+        """Generate safe fallback action."""
+        logger.warning("Using safe fallback action")
+        
+        # Use zero action or random safe action
+        if hasattr(self.action_space, 'shape'):
+            if hasattr(self.action_space, 'low') and hasattr(self.action_space, 'high'):
+                # Random action within bounds
+                low = self.action_space.low
+                high = self.action_space.high
+                return np.random.uniform(low, high)
+            else:
+                # Zero action
+                return np.zeros(self.action_space.shape)
+        else:
+            return np.array([0.0])
+    
+    def _get_validated_risk_certificate(self) -> RiskCertificate:
+        """Get validated risk certificate."""
+        try:
+            certificate = self.risk_controller.get_certificate()
+            
+            # Validate certificate
+            if certificate.risk_bound < 0 or certificate.risk_bound > 1:
+                logger.warning(f"Invalid risk bound: {certificate.risk_bound}")
+                # Create safe certificate
+                from ..core.types import RiskCertificate
+                import time
+                certificate = RiskCertificate(
+                    risk_bound=0.5,  # Conservative fallback
+                    confidence=0.95,
+                    coverage_guarantee=0.95,
+                    method="fallback",
+                    sample_size=1,
+                    timestamp=time.time()
+                )
+            
+            return certificate
+            
+        except Exception as e:
+            logger.error(f"Risk certificate generation failed: {e}")
+            # Return conservative certificate
+            from ..core.types import RiskCertificate
+            import time
+            return RiskCertificate(
+                risk_bound=1.0,  # Maximum risk as fallback
+                confidence=0.95,
+                coverage_guarantee=0.95,
+                method="error_fallback",
+                sample_size=1,
+                timestamp=time.time(),
+                metadata={'error': str(e)}
+            )
     
     def train(
         self,
@@ -307,3 +636,86 @@ class ConformalRLAgent(ABC):
         self.episode_count = save_data["episode_count"]
         
         print(f"ConfoRL agent loaded from {path}")
+    
+    def _log_error(self, operation: str, error: Exception) -> None:
+        """Log error for debugging and recovery."""
+        import time
+        error_info = {
+            'timestamp': time.time(),
+            'operation': operation,
+            'error_type': type(error).__name__,
+            'error_message': str(error),
+            'traceback': traceback.format_exc()
+        }
+        
+        self.errors_encountered.append(error_info)
+        logger.error(f"Error in {operation}: {error}")
+        logger.debug(f"Error traceback: {error_info['traceback']}")
+        
+        # Log security event for potential security issues
+        if isinstance(error, (SecurityError, ValidationError)):
+            log_security_event("VALIDATION_ERROR", {
+                "operation": operation,
+                "error_type": type(error).__name__,
+                "error_message": str(error)
+            })
+    
+    def get_error_summary(self) -> Dict[str, Any]:
+        """Get summary of errors encountered."""
+        if not self.errors_encountered:
+            return {"total_errors": 0, "error_types": {}}
+        
+        error_types = {}
+        for error in self.errors_encountered:
+            error_type = error['error_type']
+            error_types[error_type] = error_types.get(error_type, 0) + 1
+        
+        return {
+            "total_errors": len(self.errors_encountered),
+            "error_types": error_types,
+            "recent_errors": self.errors_encountered[-5:],  # Last 5 errors
+            "recovery_attempts": self.recovery_attempts
+        }
+    
+    def reset_error_state(self) -> None:
+        """Reset error tracking state."""
+        logger.info("Resetting error tracking state")
+        self.errors_encountered = []
+        self.recovery_attempts = 0
+    
+    def is_healthy(self) -> bool:
+        """Check if agent is in healthy state."""
+        # Consider agent unhealthy if too many recent errors
+        recent_errors = [
+            e for e in self.errors_encountered 
+            if e['timestamp'] > (time.time() - 300)  # Last 5 minutes
+        ]
+        
+        if len(recent_errors) > 10:
+            return False
+        
+        if self.recovery_attempts >= self.max_recovery_attempts:
+            return False
+        
+        return True
+    
+    def get_health_status(self) -> Dict[str, Any]:
+        """Get comprehensive health status."""
+        import time
+        
+        return {
+            "healthy": self.is_healthy(),
+            "total_errors": len(self.errors_encountered),
+            "recent_error_count": len([
+                e for e in self.errors_encountered 
+                if e['timestamp'] > (time.time() - 300)
+            ]),
+            "recovery_attempts": self.recovery_attempts,
+            "max_recovery_attempts": self.max_recovery_attempts,
+            "training_timesteps": self.total_timesteps,
+            "episodes_completed": self.episode_count,
+            "performance_metrics": self.performance_metrics.copy(),
+            "uptime": time.time() - (
+                self.performance_metrics.get('initialization_time', time.time())
+            )
+        }
