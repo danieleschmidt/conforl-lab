@@ -1,0 +1,23 @@
+{
+  "num_episodes": 3,
+  "total_steps": 30,
+  "deployment_time": 0.0032012462615966797,
+  "avg_return": -70.81609454558892,
+  "std_return": 18.8461784981914,
+  "avg_risk": 0.0,
+  "max_risk": 0.0,
+  "avg_episode_length": 10.0,
+  "safety_interventions": 20,
+  "risk_violations": 0,
+  "fallback_activation_rate": 0.6666666666666666,
+  "episode_returns": [
+    -44.76312652191592,
+    -78.97433361220732,
+    -88.71082350264354
+  ],
+  "episode_risks": [
+    0.0,
+    0.0,
+    0.0
+  ]
+}

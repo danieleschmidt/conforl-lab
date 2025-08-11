@@ -143,3 +143,17 @@ class SecurityError(ConfoRLError):
         """
         super().__init__(message, "SECURITY_ERROR")
         self.security_context = security_context
+
+
+class TrainingError(ConfoRLError):
+    """Exception raised for training-related errors."""
+    
+    def __init__(self, message: str, training_step: int = None):
+        """Initialize training error.
+        
+        Args:
+            message: Error message
+            training_step: Training step when error occurred
+        """
+        super().__init__(message, "TRAINING_ERROR")
+        self.training_step = training_step
