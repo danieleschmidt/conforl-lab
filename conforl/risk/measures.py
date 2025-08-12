@@ -1,6 +1,17 @@
 """Risk measure implementations for RL safety."""
 
-import numpy as np
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+    class np:
+        @staticmethod
+        def array(data):
+            return data
+        @staticmethod
+        def mean(data):
+            return sum(data) / len(data) if data else 0
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, Union
 from ..core.types import TrajectoryData
@@ -29,7 +40,7 @@ class RiskMeasure(ABC):
         """
         pass
     
-    def compute_batch(self, trajectories: list[TrajectoryData]) -> np.ndarray:
+    def compute_batch(self, trajectories: list[TrajectoryData]) -> Union[list, Any]:
         """Compute risk for batch of trajectories.
         
         Args:

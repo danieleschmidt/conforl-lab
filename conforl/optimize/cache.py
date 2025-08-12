@@ -3,12 +3,30 @@
 import time
 import pickle
 import hashlib
-from typing import Any, Dict, Optional, Tuple, Union, Callable
+import gzip
+import json
+import os
+from typing import Any, Dict, Optional, Tuple, Union, Callable, List
 from collections import OrderedDict, defaultdict
 import threading
-import numpy as np
+from pathlib import Path
+
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+    class np:
+        @staticmethod
+        def array(data):
+            return data
+        @staticmethod
+        def mean(data):
+            return sum(data) / len(data) if data else 0
 
 from ..utils.logging import get_logger
+from ..utils.concurrency import ThreadSafeDict
+from ..utils.errors import ConfoRLError
 
 logger = get_logger(__name__)
 

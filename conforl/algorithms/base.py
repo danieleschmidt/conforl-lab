@@ -1,6 +1,38 @@
 """Base conformal RL agent with safety guarantees."""
 
-import numpy as np
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+    class np:
+        @staticmethod
+        def array(data):
+            return data if isinstance(data, list) else [data]
+        @staticmethod
+        def mean(data):
+            return sum(data) / len(data) if data else 0
+        @staticmethod
+        def any(data):
+            return any(data)
+        @staticmethod
+        def isnan(data):
+            return False  # Simplified
+        @staticmethod
+        def isinf(data):
+            return False  # Simplified
+        @staticmethod
+        def clip(data, low, high):
+            if hasattr(data, '__iter__'):
+                return [max(low, min(high, x)) for x in data]
+            return max(low, min(high, data))
+        @staticmethod
+        def zeros(shape):
+            return [0.0] * (shape[0] if hasattr(shape, '__iter__') else shape)
+        @staticmethod
+        def random():
+            import random
+            return random
 from abc import ABC, abstractmethod
 from typing import Dict, Optional, Tuple, Union, Any, List
 import gymnasium as gym

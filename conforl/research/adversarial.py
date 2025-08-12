@@ -14,7 +14,25 @@ Author: ConfoRL Research Team
 License: Apache 2.0
 """
 
-import numpy as np
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+    class np:
+        @staticmethod
+        def array(data):
+            return data
+        @staticmethod
+        def mean(data):
+            return sum(data) / len(data) if data else 0
+        @staticmethod
+        def maximum(a, b):
+            return max(a, b)
+        @staticmethod
+        def norm(x):
+            return sum(xi**2 for xi in x)**0.5 if hasattr(x, '__iter__') else abs(x)
+
 import time
 import math
 from typing import Dict, List, Optional, Tuple, Any, Union, Callable

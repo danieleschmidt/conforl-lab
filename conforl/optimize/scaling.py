@@ -102,7 +102,7 @@ class AutoScaler:
                 duration=90.0,  # 1.5 minutes
                 cooldown=300.0
             ),
-            ScaringRule(
+            ScalingRule(
                 metric_name="response_time",
                 threshold_up=2.0,  # 2 seconds
                 threshold_down=0.5,  # 0.5 seconds

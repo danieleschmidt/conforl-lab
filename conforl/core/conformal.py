@@ -130,15 +130,10 @@ class SplitConformalPredictor(ConformalPredictor):
         """Default nonconformity score: absolute residual."""
         return np.abs(y_true - y_pred)
     
-    def calibrate(
-        self,
-        calibration_data,  # np.ndarray when available
-        calibration_scores  # np.ndarray when available
-    ) -> None:
-        """Calibrate using split conformal method.
+    def calibrate(self, calibration_scores) -> None:
+        """Calibrate using split conformal method (simplified interface).
         
         Args:
-            calibration_data: Calibration inputs (unused in split method)
             calibration_scores: Precomputed nonconformity scores
         """
         self.calibration_size = len(calibration_scores)
@@ -149,6 +144,19 @@ class SplitConformalPredictor(ConformalPredictor):
         q_level = min(q_level, 1.0)  # Ensure valid quantile
         
         self.quantile = np.quantile(calibration_scores, q_level)
+    
+    def calibrate_with_data(
+        self,
+        calibration_data,  # np.ndarray when available
+        calibration_scores  # np.ndarray when available
+    ) -> None:
+        """Calibrate using split conformal method (full interface).
+        
+        Args:
+            calibration_data: Calibration inputs (unused in split method)
+            calibration_scores: Precomputed nonconformity scores
+        """
+        self.calibrate(calibration_scores)
         
     def predict(
         self,
@@ -185,6 +193,27 @@ class SplitConformalPredictor(ConformalPredictor):
         if return_scores:
             return conformal_set, scores
         return conformal_set
+    
+    def get_prediction_interval(self, test_predictions, scores=None):
+        """Get simple prediction intervals.
+        
+        Args:
+            test_predictions: Point predictions
+            scores: Optional precomputed scores
+            
+        Returns:
+            Tuple of (lower_bounds, upper_bounds)
+        """
+        if self.quantile is None:
+            raise ValueError("Must call calibrate() before getting prediction intervals")
+        
+        if not hasattr(test_predictions, '__iter__'):
+            test_predictions = [test_predictions]
+        
+        lower = [pred - self.quantile for pred in test_predictions]
+        upper = [pred + self.quantile for pred in test_predictions]
+        
+        return lower, upper
     
     def get_risk_certificate(
         self,

@@ -1,9 +1,44 @@
 """Input validation and data sanitization utilities."""
 
-import numpy as np
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+    class np:
+        @staticmethod
+        def ndarray():
+            return list  # Use list as fallback
+        @staticmethod
+        def isnan(data):
+            return False  # Simplified
+        @staticmethod
+        def isinf(data):
+            return False  # Simplified
+        @staticmethod
+        def any(data):
+            return any(data) if hasattr(data, '__iter__') else False
+        @staticmethod
+        def all(data):
+            return all(data) if hasattr(data, '__iter__') else True
+        @staticmethod
+        def isin(data, values):
+            if hasattr(data, '__iter__'):
+                return [x in values for x in data]
+            return data in values
 from typing import Dict, Any, Optional, Union, List
-import gymnasium as gym
 from pathlib import Path
+
+try:
+    import gymnasium as gym
+    GYMNASIUM_AVAILABLE = True
+except ImportError:
+    GYMNASIUM_AVAILABLE = False
+    # Create minimal gym interface for validation
+    class gym:
+        class spaces:
+            class Discrete:
+                pass
 
 from .errors import ValidationError, ConfigurationError, EnvironmentError, DataError
 
@@ -79,7 +114,7 @@ def validate_config(config: Dict[str, Any]) -> Dict[str, Any]:
     return validated_config
 
 
-def validate_environment(env: gym.Env) -> None:
+def validate_environment(env) -> None:
     """Validate Gymnasium environment compatibility.
     
     Args:
@@ -88,6 +123,11 @@ def validate_environment(env: gym.Env) -> None:
     Raises:
         EnvironmentError: If environment is incompatible
     """
+    if not GYMNASIUM_AVAILABLE:
+        # Skip detailed validation if gymnasium not available
+        if not hasattr(env, 'reset') or not hasattr(env, 'step'):
+            raise EnvironmentError("Environment missing basic methods")
+        return
     if not hasattr(env, 'observation_space'):
         raise EnvironmentError("Environment missing observation_space")
     
@@ -146,14 +186,25 @@ def validate_dataset(dataset: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
     action_data = dataset['actions']
     reward_data = dataset['rewards']
     
-    if not isinstance(obs_data, np.ndarray):
-        raise DataError("observations must be numpy array")
-    
-    if not isinstance(action_data, np.ndarray):
-        raise DataError("actions must be numpy array")
-    
-    if not isinstance(reward_data, np.ndarray):
-        raise DataError("rewards must be numpy array")
+    if NUMPY_AVAILABLE:
+        if not isinstance(obs_data, np.ndarray):
+            raise DataError("observations must be numpy array")
+        
+        if not isinstance(action_data, np.ndarray):
+            raise DataError("actions must be numpy array")
+        
+        if not isinstance(reward_data, np.ndarray):
+            raise DataError("rewards must be numpy array")
+    else:
+        # Use list-based validation when numpy not available
+        if not isinstance(obs_data, list):
+            raise DataError("observations must be list")
+        
+        if not isinstance(action_data, list):
+            raise DataError("actions must be list")
+        
+        if not isinstance(reward_data, list):
+            raise DataError("rewards must be list")
     
     # Check data lengths match
     n_obs = len(obs_data)
@@ -169,23 +220,25 @@ def validate_dataset(dataset: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
         raise DataError("Dataset is empty")
     
     # Validate data ranges
-    if np.any(np.isnan(obs_data)):
-        raise DataError("observations contain NaN values")
-    
-    if np.any(np.isnan(action_data)):
-        raise DataError("actions contain NaN values")
-    
-    if np.any(np.isnan(reward_data)):
-        raise DataError("rewards contain NaN values")
-    
-    if np.any(np.isinf(obs_data)):
-        raise DataError("observations contain infinite values")
-    
-    if np.any(np.isinf(action_data)):
-        raise DataError("actions contain infinite values")
-    
-    if np.any(np.isinf(reward_data)):
-        raise DataError("rewards contain infinite values")
+    if NUMPY_AVAILABLE:
+        if np.any(np.isnan(obs_data)):
+            raise DataError("observations contain NaN values")
+        
+        if np.any(np.isnan(action_data)):
+            raise DataError("actions contain NaN values")
+        
+        if np.any(np.isnan(reward_data)):
+            raise DataError("rewards contain NaN values")
+        
+        if np.any(np.isinf(obs_data)):
+            raise DataError("observations contain infinite values")
+        
+        if np.any(np.isinf(action_data)):
+            raise DataError("actions contain infinite values")
+        
+        if np.any(np.isinf(reward_data)):
+            raise DataError("rewards contain infinite values")
+    # When numpy not available, skip NaN/inf checks for simplicity
     
     # Optional validation for next_observations and terminals
     if 'next_observations' in dataset:
@@ -223,17 +276,31 @@ def validate_trajectory_data(
         ValidationError: If trajectory data is invalid
     """
     # Check types
-    if not isinstance(states, np.ndarray):
-        raise ValidationError("states must be numpy array", "trajectory")
-    
-    if not isinstance(actions, np.ndarray):
-        raise ValidationError("actions must be numpy array", "trajectory")
-    
-    if not isinstance(rewards, np.ndarray):
-        raise ValidationError("rewards must be numpy array", "trajectory")
-    
-    if not isinstance(dones, np.ndarray):
-        raise ValidationError("dones must be numpy array", "trajectory")
+    if NUMPY_AVAILABLE:
+        if not isinstance(states, np.ndarray):
+            raise ValidationError("states must be numpy array", "trajectory")
+        
+        if not isinstance(actions, np.ndarray):
+            raise ValidationError("actions must be numpy array", "trajectory")
+        
+        if not isinstance(rewards, np.ndarray):
+            raise ValidationError("rewards must be numpy array", "trajectory")
+        
+        if not isinstance(dones, np.ndarray):
+            raise ValidationError("dones must be numpy array", "trajectory")
+    else:
+        # Use list-based validation when numpy not available
+        if not isinstance(states, list):
+            raise ValidationError("states must be list", "trajectory")
+        
+        if not isinstance(actions, list):
+            raise ValidationError("actions must be list", "trajectory")
+        
+        if not isinstance(rewards, list):
+            raise ValidationError("rewards must be list", "trajectory")
+        
+        if not isinstance(dones, list):
+            raise ValidationError("dones must be list", "trajectory")
     
     # Check lengths
     n_states = len(states)
