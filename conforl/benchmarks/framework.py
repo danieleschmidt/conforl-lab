@@ -18,7 +18,23 @@ Author: ConfoRL Research Team
 License: Apache 2.0
 """
 
-import numpy as np
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+    class np:
+        @staticmethod
+        def array(data):
+            return data
+        @staticmethod
+        def mean(data):
+            return sum(data) / len(data) if data else 0
+        @staticmethod
+        def std(data):
+            mean_val = np.mean(data)
+            return (sum((x - mean_val)**2 for x in data) / len(data))**0.5 if data else 0
+
 import time
 import json
 import pickle

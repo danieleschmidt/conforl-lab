@@ -1,6 +1,24 @@
 """Risk controllers for adaptive conformal RL."""
 
-import numpy as np
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+    class np:
+        @staticmethod
+        def array(data):
+            return data
+        @staticmethod
+        def mean(data):
+            return sum(data) / len(data) if data else 0
+        @staticmethod
+        def percentile(data, q):
+            if not data:
+                return 0
+            sorted_data = sorted(data)
+            idx = int(q / 100 * len(sorted_data))
+            return sorted_data[min(idx, len(sorted_data) - 1)]
 from typing import Dict, List, Optional, Tuple, Union
 import time
 from collections import deque

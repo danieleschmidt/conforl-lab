@@ -1,13 +1,33 @@
 """Performance profiling and monitoring utilities."""
 
 import time
-import psutil
 import threading
-from typing import Dict, Any, List, Optional, Callable
+import gc
+import json
+import os
+from typing import Dict, Any, List, Optional, Callable, Union
 from collections import defaultdict, deque
 import functools
-import gc
-import tracemalloc
+from pathlib import Path
+
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+
+try:
+    import tracemalloc
+    TRACEMALLOC_AVAILABLE = True
+except ImportError:
+    TRACEMALLOC_AVAILABLE = False
+
+try:
+    import cProfile
+    import pstats
+    CPROFILE_AVAILABLE = True
+except ImportError:
+    CPROFILE_AVAILABLE = False
 
 from ..utils.logging import get_logger
 
