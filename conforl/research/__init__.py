@@ -51,20 +51,36 @@ from .adversarial import (
     MultiStepAdversarialRisk
 )
 
-# Multi-Agent Risk Control
-from .multi_agent import (
-    CommunicationTopology,
-    AgentInfo,
-    CommunicationMessage,
-    MultiAgentRiskCertificate,
-    CommunicationNetwork,
-    ConsensusAlgorithm,
-    AverageConsensus,
-    ByzantineRobustConsensus,
-    MultiAgentRiskController,
-    FederatedRiskLearning,
-    ScalableConsensus
-)
+# Multi-Agent Risk Control (requires numpy)
+try:
+    from .multi_agent import (
+        CommunicationTopology,
+        AgentInfo,
+        CommunicationMessage,
+        MultiAgentRiskCertificate,
+        CommunicationNetwork,
+        ConsensusAlgorithm,
+        AverageConsensus,
+        ByzantineRobustConsensus,
+        MultiAgentRiskController,
+        FederatedRiskLearning,
+        ScalableConsensus
+    )
+    MULTI_AGENT_AVAILABLE = True
+except ImportError:
+    MULTI_AGENT_AVAILABLE = False
+    # Create dummy classes for missing imports
+    class CommunicationTopology: pass
+    class AgentInfo: pass
+    class CommunicationMessage: pass
+    class MultiAgentRiskCertificate: pass
+    class CommunicationNetwork: pass
+    class ConsensusAlgorithm: pass
+    class AverageConsensus: pass
+    class ByzantineRobustConsensus: pass
+    class MultiAgentRiskController: pass
+    class FederatedRiskLearning: pass
+    class ScalableConsensus: pass
 
 __all__ = [
     # Compositional

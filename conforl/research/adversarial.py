@@ -67,7 +67,7 @@ class AdversarialPerturbation:
     attack_type: AttackType
     epsilon: float
     target_component: str  # 'state', 'action', 'reward', 'transition'
-    perturbation_vector: Optional[np.ndarray] = None
+    perturbation_vector: Optional[Any] = None
     metadata: Optional[Dict[str, Any]] = None
 
 
