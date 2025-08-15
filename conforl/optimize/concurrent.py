@@ -30,6 +30,46 @@ from ..risk.controllers import AdaptiveRiskController
 logger = get_logger(__name__)
 
 
+class ConcurrentProcessor:
+    """High-performance concurrent task processor."""
+    
+    def __init__(self, max_workers: int = 4):
+        """Initialize concurrent processor.
+        
+        Args:
+            max_workers: Maximum number of worker threads/processes
+        """
+        self.max_workers = max_workers
+        self.thread_executor = ThreadPoolExecutor(max_workers=max_workers)
+        self.process_executor = ProcessPoolExecutor(max_workers=max_workers)
+    
+    def execute_concurrent(self, func: Callable, tasks: List[Any], use_processes: bool = False) -> List[Any]:
+        """Execute tasks concurrently.
+        
+        Args:
+            func: Function to execute
+            tasks: List of task inputs
+            use_processes: Whether to use processes instead of threads
+            
+        Returns:
+            List of results in order
+        """
+        executor = self.process_executor if use_processes else self.thread_executor
+        
+        futures = [executor.submit(func, task) for task in tasks]
+        results = [future.result() for future in futures]
+        
+        return results
+    
+    def __del__(self):
+        """Cleanup executors."""
+        try:
+            self.thread_executor.shutdown(wait=False)
+            self.process_executor.shutdown(wait=False)
+        except:
+            pass
+
+
 class ParallelTraining:
     """Parallel training system for multiple agents or environments."""
     

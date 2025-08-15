@@ -1,0 +1,38 @@
+groups:
+- name: conforl.rules
+  rules:
+  - alert: ConfoRLHighCPUUsage
+    expr: (rate(cpu_usage_seconds_total[5m]) * 100) > 80
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "ConfoRL high CPU usage"
+      description: "ConfoRL is using {{ $value }}% CPU"
+
+  - alert: ConfoRLHighMemoryUsage
+    expr: (memory_usage_bytes / memory_limit_bytes * 100) > 80
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "ConfoRL high memory usage"
+      description: "ConfoRL is using {{ $value }}% memory"
+
+  - alert: ConfoRLServiceDown
+    expr: up{job="conforl"} == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "ConfoRL service is down"
+      description: "ConfoRL service has been down for more than 1 minute"
+
+  - alert: ConfoRLHighErrorRate
+    expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary: "ConfoRL high error rate"
+      description: "ConfoRL error rate is {{ $value }} errors per second"

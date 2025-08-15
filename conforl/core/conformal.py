@@ -176,8 +176,12 @@ class SplitConformalPredictor(ConformalPredictor):
             raise ValueError("Must call calibrate() before predict()")
             
         # Create prediction intervals
-        lower = test_predictions - self.quantile
-        upper = test_predictions + self.quantile
+        if hasattr(test_predictions, '__iter__') and not isinstance(test_predictions, str):
+            lower = [pred - self.quantile for pred in test_predictions]
+            upper = [pred + self.quantile for pred in test_predictions]
+        else:
+            lower = test_predictions - self.quantile
+            upper = test_predictions + self.quantile
         prediction_set = np.column_stack([lower, upper])
         
         # Compute nonconformity scores (distance to prediction)

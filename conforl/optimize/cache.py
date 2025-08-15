@@ -32,6 +32,81 @@ logger = get_logger(__name__)
 
 
 class AdaptiveCache:
+    """Adaptive caching system with usage pattern learning."""
+    
+    def __init__(self, max_size: int = 1000, ttl: int = 3600):
+        """Initialize adaptive cache.
+        
+        Args:
+            max_size: Maximum cache size
+            ttl: Time-to-live in seconds
+        """
+        self.max_size = max_size
+        self.ttl = ttl
+        self.cache = {}
+        self.access_times = {}
+        self.access_count = {}
+        self.hits = 0
+        self.misses = 0
+    
+    def set(self, key: str, value: Any) -> None:
+        """Set cache value."""
+        import time
+        current_time = time.time()
+        
+        # Evict old entries if at capacity
+        if len(self.cache) >= self.max_size:
+            self._evict_oldest()
+        
+        self.cache[key] = value
+        self.access_times[key] = current_time
+        self.access_count[key] = 0
+    
+    def get(self, key: str) -> Any:
+        """Get cache value."""
+        import time
+        current_time = time.time()
+        
+        if key not in self.cache:
+            self.misses += 1
+            return None
+        
+        # Check TTL
+        if current_time - self.access_times[key] > self.ttl:
+            del self.cache[key]
+            del self.access_times[key]
+            del self.access_count[key]
+            self.misses += 1
+            return None
+        
+        # Update access stats
+        self.access_times[key] = current_time
+        self.access_count[key] += 1
+        self.hits += 1
+        
+        return self.cache[key]
+    
+    def get_stats(self) -> Dict[str, int]:
+        """Get cache statistics."""
+        return {
+            'hits': self.hits,
+            'misses': self.misses,
+            'size': len(self.cache),
+            'max_size': self.max_size
+        }
+    
+    def _evict_oldest(self) -> None:
+        """Evict oldest cache entry."""
+        if not self.access_times:
+            return
+        
+        oldest_key = min(self.access_times.keys(), key=lambda k: self.access_times[k])
+        del self.cache[oldest_key]
+        del self.access_times[oldest_key]
+        del self.access_count[oldest_key]
+
+
+class OriginalAdaptiveCache:
     """Adaptive cache that learns access patterns and optimizes accordingly."""
     
     def __init__(
