@@ -86,7 +86,7 @@ def test_conformal_prediction():
         dummy_data = [1, 2, 3, 4, 5]
         dummy_scores = [0.1, 0.2, 0.15, 0.3, 0.25]
         
-        predictor.calibrate(dummy_data, dummy_scores)
+        predictor.calibrate(dummy_scores)
         print(f"✓ Calibration completed: quantile={predictor.quantile}")
         
         return True

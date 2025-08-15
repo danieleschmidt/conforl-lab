@@ -7,7 +7,7 @@ for production safe RL deployments.
 import json
 import time
 import threading
-from typing import Any, Dict, List, Optional, Callable, Set, Tuple
+from typing import Any, Dict, List, Optional, Callable, Set, Tuple, Union
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from collections import defaultdict, deque
