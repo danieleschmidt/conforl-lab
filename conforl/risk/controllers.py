@@ -5,10 +5,34 @@ try:
     NUMPY_AVAILABLE = True
 except ImportError:
     NUMPY_AVAILABLE = False
+    # Minimal numpy-like interface for basic functionality
     class np:
         @staticmethod
         def array(data):
-            return data
+            return list(data) if hasattr(data, '__iter__') else [data]
+        @staticmethod
+        def mean(data):
+            return sum(data) / len(data) if data else 0
+        @staticmethod
+        def sqrt(x):
+            return x ** 0.5
+        @staticmethod
+        def log(x):
+            import math
+            return math.log(x)
+        @staticmethod
+        def max(a, b):
+            return max(a, b)
+        @staticmethod
+        def zeros(n):
+            return [0.0] * n
+        @staticmethod
+        def percentile(data, q):
+            if not data:
+                return 0
+            sorted_data = sorted(data)
+            idx = int(q / 100 * len(sorted_data))
+            return sorted_data[min(idx, len(sorted_data) - 1)]
         @staticmethod
         def mean(data):
             return sum(data) / len(data) if data else 0

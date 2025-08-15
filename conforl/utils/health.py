@@ -35,6 +35,107 @@ from dataclasses import dataclass
 from enum import Enum
 
 from .logging import get_logger
+
+
+class HealthMonitor:
+    """Comprehensive health monitoring system."""
+    
+    def __init__(self):
+        """Initialize health monitor."""
+        self.start_time = time.time()
+        self.checks = []
+        self.alerts = []
+    
+    def check_health(self) -> Dict[str, Any]:
+        """Perform comprehensive health check."""
+        health_status = {
+            'status': 'healthy',
+            'timestamp': time.time(),
+            'uptime': time.time() - self.start_time,
+            'checks': {}
+        }
+        
+        # Basic system checks
+        try:
+            health_status['checks']['cpu'] = self._check_cpu()
+            health_status['checks']['memory'] = self._check_memory()
+            health_status['checks']['disk'] = self._check_disk()
+        except Exception as e:
+            health_status['status'] = 'degraded'
+            health_status['error'] = str(e)
+        
+        return health_status
+    
+    def get_resource_metrics(self) -> Dict[str, float]:
+        """Get current resource metrics."""
+        metrics = {}
+        
+        if PSUTIL_AVAILABLE:
+            try:
+                metrics['cpu_percent'] = psutil.cpu_percent()
+                metrics['memory_percent'] = psutil.virtual_memory().percent
+                metrics['disk_percent'] = psutil.disk_usage('/').percent
+            except:
+                pass
+        
+        return metrics
+    
+    def check_performance_alerts(self) -> List[Dict[str, Any]]:
+        """Check for performance alerts."""
+        alerts = []
+        
+        metrics = self.get_resource_metrics()
+        
+        if metrics.get('cpu_percent', 0) > 90:
+            alerts.append({
+                'type': 'cpu_high',
+                'message': f"High CPU usage: {metrics['cpu_percent']:.1f}%",
+                'timestamp': time.time()
+            })
+        
+        if metrics.get('memory_percent', 0) > 90:
+            alerts.append({
+                'type': 'memory_high',
+                'message': f"High memory usage: {metrics['memory_percent']:.1f}%",
+                'timestamp': time.time()
+            })
+        
+        return alerts
+    
+    def _check_cpu(self) -> Dict[str, Any]:
+        """Check CPU status."""
+        if PSUTIL_AVAILABLE:
+            cpu_percent = psutil.cpu_percent(interval=1)
+            return {
+                'status': 'ok' if cpu_percent < 80 else 'warning',
+                'usage_percent': cpu_percent
+            }
+        return {'status': 'unknown', 'usage_percent': 0}
+    
+    def _check_memory(self) -> Dict[str, Any]:
+        """Check memory status."""
+        if PSUTIL_AVAILABLE:
+            memory = psutil.virtual_memory()
+            return {
+                'status': 'ok' if memory.percent < 80 else 'warning',
+                'usage_percent': memory.percent,
+                'available_gb': memory.available / (1024**3)
+            }
+        return {'status': 'unknown', 'usage_percent': 0}
+    
+    def _check_disk(self) -> Dict[str, Any]:
+        """Check disk status."""
+        if PSUTIL_AVAILABLE:
+            try:
+                disk = psutil.disk_usage('/')
+                return {
+                    'status': 'ok' if disk.percent < 90 else 'warning',
+                    'usage_percent': disk.percent,
+                    'available_gb': disk.free / (1024**3)
+                }
+            except:
+                pass
+        return {'status': 'unknown', 'usage_percent': 0}
 from .errors import ConfoRLError
 
 logger = get_logger(__name__)

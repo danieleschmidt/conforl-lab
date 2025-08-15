@@ -1,0 +1,74 @@
+{
+  "benchmark_suite": "ConfoRL Research Benchmarks v1.0",
+  "environments": [
+    {
+      "name": "CartPole-v1",
+      "type": "discrete_control",
+      "safety_constraints": [
+        "pole_angle",
+        "cart_position"
+      ],
+      "evaluation_episodes": 50
+    },
+    {
+      "name": "LunarLander-v2",
+      "type": "discrete_control",
+      "safety_constraints": [
+        "crash_avoidance",
+        "fuel_efficiency"
+      ],
+      "evaluation_episodes": 50
+    },
+    {
+      "name": "Pendulum-v1",
+      "type": "continuous_control",
+      "safety_constraints": [
+        "torque_limits",
+        "angle_bounds"
+      ],
+      "evaluation_episodes": 50
+    }
+  ],
+  "algorithms": [
+    {
+      "name": "ConformaSAC",
+      "type": "off_policy",
+      "hyperparameters": {
+        "learning_rate": 0.0003,
+        "buffer_size": 100000,
+        "batch_size": 256
+      }
+    },
+    {
+      "name": "ConformaPPO",
+      "type": "on_policy",
+      "hyperparameters": {
+        "learning_rate": 0.0003,
+        "n_steps": 2048,
+        "batch_size": 64
+      }
+    }
+  ],
+  "risk_configurations": [
+    {
+      "target_risk": 0.01,
+      "confidence": 0.99
+    },
+    {
+      "target_risk": 0.05,
+      "confidence": 0.95
+    },
+    {
+      "target_risk": 0.1,
+      "confidence": 0.9
+    }
+  ],
+  "metrics": [
+    "final_reward",
+    "safety_violation_rate",
+    "coverage_accuracy",
+    "training_time",
+    "inference_time",
+    "memory_usage"
+  ]
+}

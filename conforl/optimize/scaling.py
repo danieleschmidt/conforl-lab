@@ -64,16 +64,50 @@ class AutoScaler:
         min_instances: int = 1,
         max_instances: int = 10,
         default_rules: bool = True,
-        custom_rules: Optional[List[ScalingRule]] = None
+        custom_rules: Optional[List[ScalingRule]] = None,
+        min_workers: int = 1,
+        max_workers: int = 8,
+        target_utilization: float = 0.7
     ):
         """Initialize auto-scaler.
         
         Args:
             min_instances: Minimum number of instances
             max_instances: Maximum number of instances
-            default_rules: Whether to use default scaling rules
-            custom_rules: Custom scaling rules
+            min_workers: Minimum number of workers
+            max_workers: Maximum number of workers
+            target_utilization: Target utilization level
         """
+        self.min_instances = min_instances
+        self.max_instances = max_instances
+        self.min_workers = min_workers
+        self.max_workers = max_workers
+        self.target_utilization = target_utilization
+        
+    def recommend_workers(self, current_load: float) -> int:
+        """Recommend number of workers based on current load."""
+        if current_load > self.target_utilization:
+            # Scale up
+            return min(self.max_workers, self.min_workers + 2)
+        elif current_load < self.target_utilization * 0.5:
+            # Scale down
+            return max(self.min_workers, self.min_workers - 1)
+        else:
+            # No change
+            return self.min_workers
+    
+    def get_scaling_metrics(self) -> Dict[str, Any]:
+        """Get current scaling metrics."""
+        return {
+            'min_workers': self.min_workers,
+            'max_workers': self.max_workers,
+            'target_utilization': self.target_utilization
+        }
+        
+        logger.info(f"AutoScaler initialized with {self.min_workers}-{self.max_workers} workers")
+        self.rules = custom_rules or []
+        if default_rules:
+            self._add_default_rules()
         self.min_instances = min_instances
         self.max_instances = max_instances
         self.current_instances = min_instances

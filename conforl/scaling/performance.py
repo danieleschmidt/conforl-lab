@@ -17,7 +17,23 @@ import pickle
 import functools
 import sys
 
-import numpy as np
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+    class np:
+        float32 = float
+        float64 = float
+        dtype = type
+        ndarray = list
+        
+        @staticmethod
+        def array(data):
+            return data
+        @staticmethod 
+        def mean(data):
+            return sum(data) / len(data) if data else 0
 
 from ..utils.logging import get_logger
 from ..utils.errors import ConfoRLError

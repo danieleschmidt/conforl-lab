@@ -3,14 +3,12 @@ kind: HorizontalPodAutoscaler
 metadata:
   name: conforl-hpa
   namespace: conforl
-  labels:
-    app: conforl
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: conforl-app
-  minReplicas: 2
+  minReplicas: 3
   maxReplicas: 10
   metrics:
   - type: Resource
@@ -25,13 +23,6 @@ spec:
       target:
         type: Utilization
         averageUtilization: 80
-  - type: Pods
-    pods:
-      metric:
-        name: request_rate
-      target:
-        type: AverageValue
-        averageValue: "30"
   behavior:
     scaleDown:
       stabilizationWindowSeconds: 300
@@ -39,43 +30,9 @@ spec:
       - type: Percent
         value: 10
         periodSeconds: 60
-      - type: Pods
-        value: 2
-        periodSeconds: 60
-      selectPolicy: Min
     scaleUp:
-      stabilizationWindowSeconds: 0
+      stabilizationWindowSeconds: 60
       policies:
       - type: Percent
-        value: 100
-        periodSeconds: 15
-      - type: Pods
-        value: 4
-        periodSeconds: 15
-      selectPolicy: Max
-
----
-apiVersion: autoscaling/v2
-kind: VerticalPodAutoscaler
-metadata:
-  name: conforl-vpa
-  namespace: conforl
-spec:
-  targetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: conforl-app
-  updatePolicy:
-    updateMode: "Auto"
-    minReplicas: 2
-  resourcePolicy:
-    containerPolicies:
-    - containerName: conforl
-      maxAllowed:
-        cpu: 2
-        memory: 4Gi
-      minAllowed:
-        cpu: 100m
-        memory: 128Mi
-      controlledResources: ["cpu", "memory"]
-      controlledValues: RequestsAndLimits
+        value: 50
+        periodSeconds: 30

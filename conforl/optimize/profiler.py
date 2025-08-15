@@ -35,6 +35,62 @@ logger = get_logger(__name__)
 
 
 class PerformanceProfiler:
+    """Performance profiler with context management."""
+    
+    def __init__(self):
+        """Initialize performance profiler."""
+        self.results = {}
+        self.current_operations = {}
+    
+    def profile(self, operation_name: str):
+        """Context manager for profiling operations."""
+        return ProfileContext(self, operation_name)
+    
+    def start_operation(self, name: str) -> None:
+        """Start profiling an operation."""
+        import time
+        self.current_operations[name] = time.time()
+    
+    def end_operation(self, name: str) -> None:
+        """End profiling an operation."""
+        import time
+        if name in self.current_operations:
+            total_time = time.time() - self.current_operations[name]
+            self.results[name] = {
+                'total_time': total_time,
+                'timestamp': time.time()
+            }
+            del self.current_operations[name]
+    
+    def get_results(self) -> Dict[str, Any]:
+        """Get profiling results."""
+        return self.results.copy()
+    
+    def get_memory_usage(self) -> float:
+        """Get current memory usage in MB."""
+        try:
+            import psutil
+            return psutil.Process().memory_info().rss / 1024 / 1024
+        except ImportError:
+            return 0.0
+
+
+class ProfileContext:
+    """Context manager for profiling."""
+    
+    def __init__(self, profiler: PerformanceProfiler, operation_name: str):
+        self.profiler = profiler
+        self.operation_name = operation_name
+    
+    def __enter__(self):
+        self.profiler.start_operation(self.operation_name)
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.profiler.end_operation(self.operation_name)
+
+
+class OriginalPerformanceProfiler:
     """Comprehensive performance profiler for ConfoRL operations."""
     
     def __init__(
