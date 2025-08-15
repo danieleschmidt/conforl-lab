@@ -4,7 +4,21 @@ import time
 import threading
 from typing import Dict, List, Any, Optional, Callable
 from collections import deque
-import numpy as np
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+    # Minimal numpy-like interface
+    class np:
+        @staticmethod
+        def random():
+            import random
+            class Random:
+                @staticmethod
+                def random():
+                    return random.random()
+            return Random()
 from dataclasses import dataclass
 from enum import Enum
 

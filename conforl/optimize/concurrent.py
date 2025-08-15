@@ -7,7 +7,21 @@ from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_compl
 from typing import List, Dict, Any, Callable, Optional, Union
 import queue
 import time
-import numpy as np
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+    # Minimal numpy-like interface
+    class np:
+        @staticmethod
+        def random():
+            import random
+            class Random:
+                @staticmethod
+                def random():
+                    return random.random()
+            return Random()
 
 from ..utils.logging import get_logger
 from ..core.types import TrajectoryData, RiskCertificate
