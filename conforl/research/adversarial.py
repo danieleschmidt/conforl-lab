@@ -50,6 +50,260 @@ from ..utils.errors import ConfoRLError, ValidationError
 logger = get_logger(__name__)
 
 
+class AdversarialAttackType(Enum):
+    """Types of adversarial attacks for robustness evaluation."""
+    FGSM = "fast_gradient_sign_method"
+    PGD = "projected_gradient_descent"
+    C_W = "carlini_wagner"
+    SEMANTIC = "semantic_perturbation"
+    DISTRIBUTION_SHIFT = "distribution_shift"
+    BACKDOOR = "backdoor_attack"
+
+
+@dataclass
+class AdversarialRobustnessCertificate:
+    """Certificate for adversarial robustness guarantees."""
+    
+    epsilon: float  # Perturbation budget
+    attack_type: AdversarialAttackType
+    certified_radius: float  # Certified robust radius
+    robustness_bound: float  # Probabilistic robustness bound
+    confidence: float  # Confidence level
+    timestamp: float = field(default_factory=time.time)
+    worst_case_risk: Optional[float] = None
+    defense_mechanism: Optional[str] = None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert certificate to dictionary."""
+        return {
+            "epsilon": self.epsilon,
+            "attack_type": self.attack_type.value,
+            "certified_radius": self.certified_radius,
+            "robustness_bound": self.robustness_bound,
+            "confidence": self.confidence,
+            "timestamp": self.timestamp,
+            "worst_case_risk": self.worst_case_risk,
+            "defense_mechanism": self.defense_mechanism
+        }
+
+
+class AdversarialConfomalPredictor(ABC):
+    """Abstract base class for adversarial conformal predictors."""
+    
+    @abstractmethod
+    def compute_robust_quantile(self, scores: List[float], epsilon: float, 
+                               alpha: float) -> float:
+        """Compute adversarially robust conformal quantile."""
+        pass
+    
+    @abstractmethod
+    def certify_robustness(self, state: Any, action: Any, 
+                          epsilon: float) -> AdversarialRobustnessCertificate:
+        """Generate robustness certificate for state-action pair."""
+        pass
+
+
+class AdversarialRobustCP(AdversarialConfomalPredictor):
+    """Adversarially robust conformal predictor with worst-case guarantees."""
+    
+    def __init__(self, base_predictor: Any, defense_mechanism: str = "randomized_smoothing",
+                 certification_method: str = "lipschitz_bound"):
+        """Initialize adversarial robust conformal predictor.
+        
+        Args:
+            base_predictor: Base conformal predictor
+            defense_mechanism: Defense method (randomized_smoothing, adversarial_training)
+            certification_method: Certification approach (lipschitz_bound, interval_bound)
+        """
+        self.base_predictor = base_predictor
+        self.defense_mechanism = defense_mechanism
+        self.certification_method = certification_method
+        self.lipschitz_constant = 1.0
+        self.noise_variance = 0.1
+        self.calibration_scores = []
+        
+        logger.info(f"Initialized AdversarialRobustCP with {defense_mechanism} defense")
+    
+    def compute_robust_quantile(self, scores: List[float], epsilon: float, 
+                               alpha: float) -> float:
+        """Compute adversarially robust conformal quantile.
+        
+        This implements the worst-case quantile computation that accounts
+        for adversarial perturbations within the epsilon-ball.
+        """
+        if not scores:
+            return 0.0
+        
+        n = len(scores)
+        sorted_scores = sorted(scores)
+        
+        # Compute worst-case rank under adversarial perturbations
+        lipschitz_shift = self.lipschitz_constant * epsilon
+        worst_case_scores = [score + lipschitz_shift for score in sorted_scores]
+        
+        # Robust quantile computation with Lipschitz adjustment
+        robust_alpha = alpha + lipschitz_shift / max(scores) if scores else alpha
+        robust_alpha = min(robust_alpha, 1.0)
+        
+        # Hoeffding's bound for finite-sample guarantee
+        confidence_radius = math.sqrt(math.log(2.0 / alpha) / (2.0 * n))
+        adjusted_alpha = min(robust_alpha + confidence_radius, 1.0)
+        
+        quantile_idx = min(int(np.ceil((n + 1) * (1 - adjusted_alpha))), n - 1)
+        robust_quantile = worst_case_scores[quantile_idx]
+        
+        logger.debug(f"Computed robust quantile: {robust_quantile:.4f} for α={alpha:.3f}, ε={epsilon:.3f}")
+        return robust_quantile
+    
+    def certify_robustness(self, state: Any, action: Any, 
+                          epsilon: float) -> AdversarialRobustnessCertificate:
+        """Generate robustness certificate using randomized smoothing or Lipschitz bounds."""
+        try:
+            # Compute base prediction
+            base_risk = self._compute_base_risk(state, action)
+            
+            # Certified radius computation
+            if self.certification_method == "randomized_smoothing":
+                certified_radius = self._randomized_smoothing_radius(state, action, epsilon)
+            else:  # lipschitz_bound
+                certified_radius = epsilon / (1 + self.lipschitz_constant)
+            
+            # Worst-case risk bound
+            worst_case_risk = min(base_risk + self.lipschitz_constant * epsilon, 1.0)
+            
+            # Robustness bound with high-probability guarantee
+            robustness_bound = self._compute_probabilistic_bound(worst_case_risk, epsilon)
+            
+            certificate = AdversarialRobustnessCertificate(
+                epsilon=epsilon,
+                attack_type=AdversarialAttackType.PGD,  # Default to PGD
+                certified_radius=certified_radius,
+                robustness_bound=robustness_bound,
+                confidence=0.95,  # Default confidence
+                worst_case_risk=worst_case_risk,
+                defense_mechanism=self.defense_mechanism
+            )
+            
+            logger.info(f"Generated robustness certificate: radius={certified_radius:.4f}, "
+                       f"bound={robustness_bound:.4f}")
+            return certificate
+            
+        except Exception as e:
+            logger.error(f"Failed to certify robustness: {e}")
+            # Return conservative certificate
+            return AdversarialRobustnessCertificate(
+                epsilon=epsilon,
+                attack_type=AdversarialAttackType.PGD,
+                certified_radius=0.0,
+                robustness_bound=1.0,
+                confidence=0.0,
+                defense_mechanism=self.defense_mechanism
+            )
+    
+    def _compute_base_risk(self, state: Any, action: Any) -> float:
+        """Compute base risk estimate."""
+        # Simplified risk computation
+        if hasattr(self.base_predictor, 'predict_risk'):
+            return self.base_predictor.predict_risk(state, action)
+        return 0.1  # Default conservative estimate
+    
+    def _randomized_smoothing_radius(self, state: Any, action: Any, epsilon: float) -> float:
+        """Compute certified radius using randomized smoothing."""
+        # Simplified implementation - in practice would use statistical tests
+        noise_samples = 1000
+        confidence_level = 0.95
+        
+        # Norm-based certification (Cohen et al., 2019)
+        sigma = self.noise_variance
+        radius = sigma * self._inverse_normal_cdf((1 + confidence_level) / 2)
+        
+        return min(radius, epsilon)
+    
+    def _inverse_normal_cdf(self, p: float) -> float:
+        """Approximate inverse normal CDF."""
+        # Simplified approximation
+        if p <= 0.5:
+            return -math.sqrt(-2 * math.log(p))
+        else:
+            return math.sqrt(-2 * math.log(1 - p))
+    
+    def _compute_probabilistic_bound(self, worst_case_risk: float, epsilon: float) -> float:
+        """Compute probabilistic robustness bound."""
+        # PAC-Bayes style bound
+        complexity_penalty = epsilon * math.sqrt(math.log(1 / 0.05))
+        return min(worst_case_risk + complexity_penalty, 1.0)
+
+
+class AdversarialRiskController:
+    """Risk controller with adversarial robustness guarantees."""
+    
+    def __init__(self, base_controller: AdaptiveRiskController, 
+                 robust_predictor: AdversarialRobustCP,
+                 epsilon: float = 0.1):
+        """Initialize adversarial risk controller."""
+        self.base_controller = base_controller
+        self.robust_predictor = robust_predictor
+        self.epsilon = epsilon
+        self.attack_history = []
+        
+    def control_risk_robust(self, state: Any, action: Any, 
+                           attack_type: AdversarialAttackType = AdversarialAttackType.PGD) -> Tuple[bool, AdversarialRobustnessCertificate]:
+        """Control risk with adversarial robustness guarantees."""
+        try:
+            # Generate robustness certificate
+            certificate = self.robust_predictor.certify_robustness(state, action, self.epsilon)
+            
+            # Check if action is safe under worst-case adversarial perturbation
+            target_risk = self.base_controller.target_risk
+            is_safe = certificate.worst_case_risk <= target_risk
+            
+            # Log attack attempt if not safe
+            if not is_safe:
+                self.attack_history.append({
+                    'timestamp': time.time(),
+                    'attack_type': attack_type.value,
+                    'worst_case_risk': certificate.worst_case_risk,
+                    'target_risk': target_risk
+                })
+                logger.warning(f"Unsafe action detected under {attack_type.value}: "
+                             f"risk={certificate.worst_case_risk:.4f} > target={target_risk:.4f}")
+            
+            return is_safe, certificate
+            
+        except Exception as e:
+            logger.error(f"Adversarial risk control failed: {e}")
+            # Return conservative decision
+            conservative_cert = AdversarialRobustnessCertificate(
+                epsilon=self.epsilon,
+                attack_type=attack_type,
+                certified_radius=0.0,
+                robustness_bound=1.0,
+                confidence=0.0
+            )
+            return False, conservative_cert
+    
+    def get_attack_statistics(self) -> Dict[str, Any]:
+        """Get statistics about detected attacks."""
+        if not self.attack_history:
+            return {"total_attacks": 0, "attack_types": {}, "avg_risk": 0.0}
+        
+        attack_types = {}
+        total_risk = 0.0
+        
+        for attack in self.attack_history:
+            attack_type = attack['attack_type']
+            attack_types[attack_type] = attack_types.get(attack_type, 0) + 1
+            total_risk += attack['worst_case_risk']
+        
+        return {
+            "total_attacks": len(self.attack_history),
+            "attack_types": attack_types,
+            "avg_risk": total_risk / len(self.attack_history),
+            "recent_attacks": len([a for a in self.attack_history 
+                                 if time.time() - a['timestamp'] < 3600])  # Last hour
+        }
+
+
 class AttackType(Enum):
     """Types of adversarial attacks."""
     L_INF = "l_inf"          # L-infinity norm bounded

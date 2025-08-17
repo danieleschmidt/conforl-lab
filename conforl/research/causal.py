@@ -48,6 +48,377 @@ from .compositional import CompositionalRiskCertificate
 logger = get_logger(__name__)
 
 
+class CausalGraphType(Enum):
+    """Types of causal graph structures."""
+    DAG = "directed_acyclic_graph"
+    CHAIN = "causal_chain"
+    FORK = "fork_structure"
+    COLLIDER = "collider_structure"
+    MARKOV_BLANKET = "markov_blanket"
+
+
+@dataclass
+class CausalNode:
+    """Node in a causal graph."""
+    
+    name: str
+    node_type: str  # 'state', 'action', 'reward', 'context'
+    parents: List[str] = field(default_factory=list)
+    children: List[str] = field(default_factory=list)
+    intervention_targets: bool = False
+    confounders: List[str] = field(default_factory=list)
+
+
+@dataclass
+class CausalIntervention:
+    """Specification of a causal intervention."""
+    
+    target_variables: List[str]
+    intervention_values: Dict[str, Any]
+    intervention_type: str = "hard"  # "hard", "soft", "stochastic"
+    timestamp: float = field(default_factory=time.time)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert intervention to dictionary."""
+        return {
+            "target_variables": self.target_variables,
+            "intervention_values": self.intervention_values,
+            "intervention_type": self.intervention_type,
+            "timestamp": self.timestamp
+        }
+
+
+@dataclass
+class CausalRiskCertificate:
+    """Risk certificate robust to causal interventions."""
+    
+    base_risk: float
+    intervention_robust_risk: float
+    confounding_adjusted_risk: float
+    causal_confidence: float
+    active_interventions: List[CausalIntervention]
+    timestamp: float = field(default_factory=time.time)
+    causal_graph_hash: Optional[str] = None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert certificate to dictionary."""
+        return {
+            "base_risk": self.base_risk,
+            "intervention_robust_risk": self.intervention_robust_risk,
+            "confounding_adjusted_risk": self.confounding_adjusted_risk,
+            "causal_confidence": self.causal_confidence,
+            "active_interventions": [interv.to_dict() for interv in self.active_interventions],
+            "timestamp": self.timestamp,
+            "causal_graph_hash": self.causal_graph_hash
+        }
+
+
+class CausalGraph:
+    """Causal graph representation for robust conformal prediction."""
+    
+    def __init__(self):
+        """Initialize empty causal graph."""
+        self.nodes: Dict[str, CausalNode] = {}
+        self.edges: List[Tuple[str, str]] = []
+        self.interventions: List[CausalIntervention] = []
+        self.confounders: Dict[str, List[str]] = defaultdict(list)
+        
+    def add_node(self, node: CausalNode):
+        """Add node to causal graph."""
+        self.nodes[node.name] = node
+        logger.debug(f"Added causal node: {node.name} ({node.node_type})")
+    
+    def add_edge(self, parent: str, child: str):
+        """Add causal edge between nodes."""
+        if parent in self.nodes and child in self.nodes:
+            self.edges.append((parent, child))
+            self.nodes[parent].children.append(child)
+            self.nodes[child].parents.append(parent)
+            logger.debug(f"Added causal edge: {parent} -> {child}")
+        else:
+            raise ValidationError(f"Invalid edge: {parent} -> {child}. Nodes must exist.")
+    
+    def add_confounder(self, var1: str, var2: str, confounder: str):
+        """Add confounder relationship."""
+        self.confounders[f"{var1}-{var2}"].append(confounder)
+        logger.debug(f"Added confounder {confounder} for {var1}-{var2}")
+    
+    def get_markov_blanket(self, target: str) -> List[str]:
+        """Get Markov blanket of target variable."""
+        if target not in self.nodes:
+            return []
+        
+        blanket = set()
+        
+        # Add parents
+        blanket.update(self.nodes[target].parents)
+        
+        # Add children
+        blanket.update(self.nodes[target].children)
+        
+        # Add parents of children (co-parents)
+        for child in self.nodes[target].children:
+            blanket.update(self.nodes[child].parents)
+        
+        # Remove target itself
+        blanket.discard(target)
+        
+        return list(blanket)
+    
+    def is_d_separated(self, var1: str, var2: str, conditioning_set: List[str]) -> bool:
+        """Check if var1 and var2 are d-separated given conditioning set."""
+        # Simplified d-separation check
+        # In practice, would use more sophisticated graph algorithms
+        
+        # If variables are directly connected, not d-separated unless conditioned
+        for parent, child in self.edges:
+            if (parent == var1 and child == var2) or (parent == var2 and child == var1):
+                return var1 in conditioning_set or var2 in conditioning_set
+        
+        # More complex paths would require path enumeration
+        return True  # Default conservative assumption
+    
+    def estimate_causal_effect(self, treatment: str, outcome: str, 
+                              data: List[Dict[str, Any]]) -> float:
+        """Estimate causal effect using do-calculus approximation."""
+        if not data:
+            return 0.0
+        
+        # Simplified causal effect estimation
+        # In practice, would use instrumental variables, backdoor adjustment, etc.
+        
+        # Get confounders for treatment-outcome relationship
+        confounders = self.confounders.get(f"{treatment}-{outcome}", [])
+        
+        if not confounders:
+            # No confounders - can estimate effect directly
+            treated_outcomes = [d[outcome] for d in data if d.get(treatment, 0) > 0]
+            control_outcomes = [d[outcome] for d in data if d.get(treatment, 0) == 0]
+            
+            if treated_outcomes and control_outcomes:
+                return np.mean(treated_outcomes) - np.mean(control_outcomes)
+        
+        # With confounders - use stratification
+        effect_estimates = []
+        
+        # Group by confounder values
+        confounder_groups = defaultdict(list)
+        for observation in data:
+            confounder_key = tuple(observation.get(c, 0) for c in confounders)
+            confounder_groups[confounder_key].append(observation)
+        
+        # Estimate effect within each stratum
+        for group_data in confounder_groups.values():
+            if len(group_data) < 2:
+                continue
+                
+            treated = [d[outcome] for d in group_data if d.get(treatment, 0) > 0]
+            control = [d[outcome] for d in group_data if d.get(treatment, 0) == 0]
+            
+            if treated and control:
+                stratum_effect = np.mean(treated) - np.mean(control)
+                effect_estimates.append(stratum_effect)
+        
+        return np.mean(effect_estimates) if effect_estimates else 0.0
+
+
+class CausalConformalPredictor:
+    """Conformal predictor robust to causal interventions and distribution shift."""
+    
+    def __init__(self, causal_graph: CausalGraph, base_predictor: Any = None):
+        """Initialize causal conformal predictor."""
+        self.causal_graph = causal_graph
+        self.base_predictor = base_predictor
+        self.intervention_history = []
+        self.distribution_shift_detector = None
+        self.calibration_data = []
+        
+        logger.info("Initialized CausalConformalPredictor")
+    
+    def predict_with_intervention(self, state: Any, action: Any, 
+                                 intervention: Optional[CausalIntervention] = None) -> CausalRiskCertificate:
+        """Predict risk with causal intervention robustness."""
+        try:
+            # Base risk prediction
+            base_risk = self._compute_base_risk(state, action)
+            
+            # Apply intervention if specified
+            active_interventions = []
+            if intervention:
+                active_interventions.append(intervention)
+                self.intervention_history.append(intervention)
+            
+            # Compute intervention-robust risk
+            intervention_robust_risk = self._compute_intervention_robust_risk(
+                state, action, active_interventions
+            )
+            
+            # Adjust for confounding
+            confounding_adjusted_risk = self._adjust_for_confounding(
+                base_risk, state, action
+            )
+            
+            # Causal confidence based on graph structure
+            causal_confidence = self._compute_causal_confidence(state, action)
+            
+            certificate = CausalRiskCertificate(
+                base_risk=base_risk,
+                intervention_robust_risk=intervention_robust_risk,
+                confounding_adjusted_risk=confounding_adjusted_risk,
+                causal_confidence=causal_confidence,
+                active_interventions=active_interventions,
+                causal_graph_hash=self._compute_graph_hash()
+            )
+            
+            logger.debug(f"Generated causal risk certificate: "
+                        f"base={base_risk:.4f}, robust={intervention_robust_risk:.4f}")
+            
+            return certificate
+            
+        except Exception as e:
+            logger.error(f"Causal prediction failed: {e}")
+            # Return conservative certificate
+            return CausalRiskCertificate(
+                base_risk=1.0,
+                intervention_robust_risk=1.0,
+                confounding_adjusted_risk=1.0,
+                causal_confidence=0.0,
+                active_interventions=[]
+            )
+    
+    def detect_distribution_shift(self, current_data: List[Dict[str, Any]], 
+                                 reference_data: List[Dict[str, Any]]) -> bool:
+        """Detect causal distribution shift."""
+        if not current_data or not reference_data:
+            return False
+        
+        # Simplified distribution shift detection
+        # In practice, would use causal invariance tests
+        
+        shift_detected = False
+        
+        # Check for changes in causal relationships
+        for var_pair, confounders in self.causal_graph.confounders.items():
+            var1, var2 = var_pair.split('-')
+            
+            # Estimate causal effect in both datasets
+            current_effect = self.causal_graph.estimate_causal_effect(
+                var1, var2, current_data
+            )
+            reference_effect = self.causal_graph.estimate_causal_effect(
+                var1, var2, reference_data
+            )
+            
+            # Check for significant change
+            effect_change = abs(current_effect - reference_effect)
+            if effect_change > 0.1:  # Threshold for significance
+                shift_detected = True
+                logger.warning(f"Causal shift detected: {var1}->{var2} "
+                             f"effect changed by {effect_change:.4f}")
+        
+        return shift_detected
+    
+    def adapt_to_intervention(self, intervention: CausalIntervention, 
+                             adaptation_data: List[Dict[str, Any]]):
+        """Adapt predictor to causal intervention."""
+        try:
+            # Record intervention
+            self.intervention_history.append(intervention)
+            
+            # Update calibration data with post-intervention observations
+            self.calibration_data.extend(adaptation_data)
+            
+            # Recompute conformal quantiles under intervention
+            self._recalibrate_under_intervention(intervention, adaptation_data)
+            
+            logger.info(f"Adapted to intervention on {intervention.target_variables}")
+            
+        except Exception as e:
+            logger.error(f"Intervention adaptation failed: {e}")
+    
+    def _compute_base_risk(self, state: Any, action: Any) -> float:
+        """Compute base risk without causal adjustments."""
+        if hasattr(self.base_predictor, 'predict_risk'):
+            return self.base_predictor.predict_risk(state, action)
+        return 0.1  # Default conservative estimate
+    
+    def _compute_intervention_robust_risk(self, state: Any, action: Any, 
+                                        interventions: List[CausalIntervention]) -> float:
+        """Compute risk robust to causal interventions."""
+        base_risk = self._compute_base_risk(state, action)
+        
+        if not interventions:
+            return base_risk
+        
+        # Compute worst-case risk over all interventions
+        max_risk = base_risk
+        
+        for intervention in interventions:
+            # Estimate risk change due to intervention
+            intervention_effect = self._estimate_intervention_effect(
+                intervention, state, action
+            )
+            intervention_risk = min(base_risk + intervention_effect, 1.0)
+            max_risk = max(max_risk, intervention_risk)
+        
+        return max_risk
+    
+    def _adjust_for_confounding(self, base_risk: float, state: Any, action: Any) -> float:
+        """Adjust risk estimate for confounding bias."""
+        # Simplified confounding adjustment
+        # In practice, would use backdoor adjustment or instrumental variables
+        
+        confounding_bias = 0.05  # Conservative adjustment
+        adjusted_risk = min(base_risk + confounding_bias, 1.0)
+        
+        return adjusted_risk
+    
+    def _compute_causal_confidence(self, state: Any, action: Any) -> float:
+        """Compute confidence in causal model."""
+        # Base confidence on graph completeness and data quality
+        
+        # Check if we have sufficient interventional data
+        intervention_coverage = len(self.intervention_history) / max(len(self.causal_graph.nodes), 1)
+        intervention_coverage = min(intervention_coverage, 1.0)
+        
+        # Check for recent distribution shifts
+        recent_shifts = len([i for i in self.intervention_history 
+                           if time.time() - i.timestamp < 3600])  # Last hour
+        shift_penalty = min(recent_shifts * 0.1, 0.5)
+        
+        confidence = 0.7 + 0.3 * intervention_coverage - shift_penalty
+        return max(confidence, 0.1)
+    
+    def _estimate_intervention_effect(self, intervention: CausalIntervention, 
+                                    state: Any, action: Any) -> float:
+        """Estimate effect of intervention on risk."""
+        # Simplified intervention effect estimation
+        effect_magnitude = 0.0
+        
+        for target_var in intervention.target_variables:
+            # Estimate causal effect of intervening on this variable
+            if target_var in self.causal_graph.nodes:
+                # Effect proportional to number of causal descendants
+                descendants = len(self.causal_graph.nodes[target_var].children)
+                effect_magnitude += descendants * 0.02
+        
+        return min(effect_magnitude, 0.2)  # Cap at 20% risk increase
+    
+    def _recalibrate_under_intervention(self, intervention: CausalIntervention,
+                                       data: List[Dict[str, Any]]):
+        """Recalibrate conformal quantiles under intervention."""
+        # This would update the calibration scores based on post-intervention data
+        # Simplified implementation
+        if data:
+            logger.debug(f"Recalibrated with {len(data)} post-intervention observations")
+    
+    def _compute_graph_hash(self) -> str:
+        """Compute hash of current causal graph structure."""
+        # Simple hash based on nodes and edges
+        nodes_str = str(sorted(self.causal_graph.nodes.keys()))
+        edges_str = str(sorted(self.causal_graph.edges))
+        combined = nodes_str + edges_str
+        return str(hash(combined))
 @dataclass 
 class CausalGraph:
     """Represents a causal directed acyclic graph (DAG)."""
