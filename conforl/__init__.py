@@ -8,39 +8,35 @@ __version__ = "0.1.0"
 __author__ = "Daniel Schmidt"
 __email__ = "daniel@terragonlabs.ai"
 
+# Core imports that should always work
+from .core.types import RiskCertificate, TrajectoryData
+
 # Conditional imports to avoid dependency issues during development
-try:
-    from .algorithms import *
-except ImportError:
-    pass
+_algorithm_imports = []
+_risk_imports = []
+_deploy_imports = []
 
 try:
-    from .risk import *
-except ImportError:
-    pass
+    from .risk.controllers import AdaptiveRiskController
+    from .risk.measures import RiskMeasure, SafetyViolationRisk
+    _risk_imports.extend(["AdaptiveRiskController", "RiskMeasure", "SafetyViolationRisk"])
+except ImportError as e:
+    print(f"Warning: Risk module imports failed: {e}")
 
 try:
-    from .deploy import *
-except ImportError:
-    pass
+    from .algorithms.base import ConformalRLAgent
+    _algorithm_imports.append("ConformalRLAgent")
+except ImportError as e:
+    print(f"Warning: Algorithm base import failed: {e}")
+
+try:
+    from .deploy.pipeline import SafeDeploymentPipeline
+    _deploy_imports.append("SafeDeploymentPipeline")
+except ImportError as e:
+    print(f"Warning: Deploy module imports failed: {e}")
 
 __all__ = [
-    # Core algorithms
-    "ConformaSAC",
-    "ConformaPPO", 
-    "ConformaTD3",
-    "ConformaCQL",
-    
-    # Risk controllers
-    "AdaptiveRiskController",
-    "MultiRiskController",
-    "OnlineRiskAdaptation",
-    
-    # Risk measures
-    "RiskMeasure",
-    "SafetyViolationRisk",
-    "PerformanceRisk",
-    
-    # Deployment
-    "SafeDeploymentPipeline",
-]
+    # Core types
+    "RiskCertificate",
+    "TrajectoryData",
+] + _algorithm_imports + _risk_imports + _deploy_imports

@@ -173,6 +173,48 @@ class CircuitBreakerError(ConfoRLError):
         self.failure_count = failure_count
 
 
+class InvalidTrajectoryError(ValidationError):
+    """Exception raised for invalid trajectory data."""
+    
+    def __init__(self, message: str, trajectory_field: str = None):
+        """Initialize invalid trajectory error.
+        
+        Args:
+            message: Error message
+            trajectory_field: Trajectory field that failed validation
+        """
+        super().__init__(message, "TRAJECTORY_VALIDATION")
+        self.trajectory_field = trajectory_field
+
+
+class InvalidRiskParameterError(ValidationError):
+    """Exception raised for invalid risk parameters."""
+    
+    def __init__(self, message: str, parameter_name: str = None):
+        """Initialize invalid risk parameter error.
+        
+        Args:
+            message: Error message
+            parameter_name: Parameter that failed validation
+        """
+        super().__init__(message, "RISK_PARAMETER_VALIDATION")
+        self.parameter_name = parameter_name
+
+
+class ServiceUnavailableError(ConfoRLError):
+    """Exception raised when a service is unavailable."""
+    
+    def __init__(self, message: str, service_name: str = None):
+        """Initialize service unavailable error.
+        
+        Args:
+            message: Error message
+            service_name: Name of unavailable service
+        """
+        super().__init__(message, "SERVICE_UNAVAILABLE")
+        self.service_name = service_name
+
+
 class ErrorRecovery:
     """Utility class for error recovery and resilience patterns."""
     
