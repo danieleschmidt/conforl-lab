@@ -36,6 +36,7 @@ from typing import Dict, List, Optional, Tuple, Any, Union, Callable
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from enum import Enum
 import warnings
 
 from ..core.types import RiskCertificate, TrajectoryData
