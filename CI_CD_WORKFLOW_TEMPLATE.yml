@@ -1,3 +1,13 @@
+# GitHub Actions CI/CD Workflow Template for ConfoRL
+# 
+# INSTRUCTIONS: 
+# 1. Create the directory .github/workflows/ in your repository
+# 2. Copy this file to .github/workflows/ci-cd.yml
+# 3. Customize the deployment sections with your specific registry and deployment targets
+#
+# NOTE: This file was placed here instead of .github/workflows/ due to GitHub App permissions
+# requiring special 'workflows' scope to create workflow files.
+
 name: ConfoRL CI/CD Pipeline
 
 on:
