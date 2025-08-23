@@ -5,95 +5,64 @@ metadata:
   namespace: conforl
   labels:
     app: conforl
-    version: v1.0.0
+    component: app
 spec:
   replicas: 3
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
   selector:
     matchLabels:
       app: conforl
+      component: app
   template:
     metadata:
       labels:
         app: conforl
-        version: v1.0.0
+        component: app
     spec:
-      serviceAccountName: conforl-service-account
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 1001
-        fsGroup: 1001
       containers:
       - name: conforl
         image: conforl:latest
-        imagePullPolicy: Always
         ports:
-        - containerPort: 8080
-          name: http
+        - containerPort: 8000
         env:
         - name: CONFORL_ENV
           value: "production"
         - name: CONFORL_LOG_LEVEL
           value: "INFO"
-        - name: PYTHONUNBUFFERED
-          value: "1"
+        - name: CONFORL_MAX_WORKERS
+          value: "4"
         resources:
           requests:
-            cpu: 500m
-            memory: 512Mi
+            memory: "512Mi"
+            cpu: "500m"
           limits:
-            cpu: 1000m
-            memory: 1Gi
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 10
-          periodSeconds: 10
-          timeoutSeconds: 5
-          successThreshold: 1
-          failureThreshold: 3
+            memory: "2Gi"
+            cpu: "1000m"
         livenessProbe:
           httpGet:
             path: /health
-            port: 8080
+            port: 8000
           initialDelaySeconds: 30
-          periodSeconds: 30
-          timeoutSeconds: 10
-          successThreshold: 1
-          failureThreshold: 3
-        startupProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 10
           periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 30
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
         volumeMounts:
-        - name: conforl-config
-          mountPath: /app/config
+        - name: model-storage
+          mountPath: /app/models
           readOnly: true
-        - name: logs
+        - name: log-storage
           mountPath: /app/logs
       volumes:
-      - name: conforl-config
-        configMap:
-          name: conforl-config
-      - name: logs
-        emptyDir: {}
-      nodeSelector:
-        kubernetes.io/os: linux
-      tolerations:
-      - key: node.kubernetes.io/not-ready
-        operator: Exists
-        effect: NoExecute
-        tolerationSeconds: 300
-      - key: node.kubernetes.io/unreachable
-        operator: Exists
-        effect: NoExecute
-        tolerationSeconds: 300
+      - name: model-storage
+        persistentVolumeClaim:
+          claimName: conforl-models-pvc
+      - name: log-storage
+        persistentVolumeClaim:
+          claimName: conforl-logs-pvc
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
