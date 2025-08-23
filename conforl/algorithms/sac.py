@@ -316,9 +316,7 @@ class ConformaSAC(ConformalRLAgent):
         # Adaptive caching for predictions and Q-values
         self.prediction_cache = AdaptiveCache(
             max_size=1000,
-            ttl=300.0,  # 5 minutes
-            adaptive_ttl=True,
-            compression=False  # Keep False for speed
+            ttl=300  # 5 minutes
         )
         
         # Performance cache for expensive computations

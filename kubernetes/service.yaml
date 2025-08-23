@@ -9,8 +9,9 @@ spec:
   type: ClusterIP
   ports:
   - port: 80
-    targetPort: 8080
+    targetPort: 8000
     protocol: TCP
     name: http
   selector:
     app: conforl
+    component: app

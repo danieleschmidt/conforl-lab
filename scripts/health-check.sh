@@ -1,37 +1,31 @@
 #!/bin/bash
-
 # ConfoRL Health Check Script
 
-NAMESPACE="conforl"
-SERVICE_NAME="conforl-service"
+ENVIRONMENT=${1:-local}
 
-echo "🏥 ConfoRL Health Check"
-echo "======================="
+case $ENVIRONMENT in
+    "local")
+        HEALTH_URL="http://localhost:8000/health"
+        ;;
+    "staging")
+        HEALTH_URL="http://conforl-staging.yourcompany.com/health"
+        ;;
+    "production")
+        HEALTH_URL="http://conforl.yourcompany.com/health"
+        ;;
+esac
 
-# Check namespace
-if ! kubectl get namespace $NAMESPACE &> /dev/null; then
-    echo "❌ Namespace $NAMESPACE not found"
-    exit 1
-fi
+echo "🏥 Checking health at $HEALTH_URL"
 
-# Check deployment
-DEPLOYMENT_STATUS=$(kubectl get deployment conforl-app -n $NAMESPACE -o jsonpath='{.status.readyReplicas}/{.status.replicas}')
-echo "📦 Deployment Status: $DEPLOYMENT_STATUS"
+for i in {1..30}; do
+    if curl -f $HEALTH_URL > /dev/null 2>&1; then
+        echo "✅ Service is healthy!"
+        exit 0
+    else
+        echo "⏳ Waiting for service... (attempt $i/30)"
+        sleep 10
+    fi
+done
 
-# Check service
-SERVICE_IP=$(kubectl get service $SERVICE_NAME -n $NAMESPACE -o jsonpath='{.spec.clusterIP}')
-echo "🌐 Service IP: $SERVICE_IP"
-
-# Check pods
-echo "🐳 Pod Status:"
-kubectl get pods -n $NAMESPACE -l app=conforl
-
-# Check HPA
-echo "📈 Autoscaler Status:"
-kubectl get hpa conforl-hpa -n $NAMESPACE
-
-# Check metrics
-echo "📊 Resource Usage:"
-kubectl top pods -n $NAMESPACE --containers
-
-echo "✅ Health check completed"
+echo "❌ Service health check failed!"
+exit 1

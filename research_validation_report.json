@@ -1,0 +1,87 @@
+{
+  "timestamp": 1755929702.2950397,
+  "total_tests": 4,
+  "passed_tests": 1,
+  "success_rate": 0.25,
+  "results": [
+    {
+      "test": "conformal_coverage",
+      "passed": false,
+      "error": "'SplitConformalPredictor' object has no attribute 'fit'"
+    },
+    {
+      "test": "algorithm_comparison",
+      "results": [
+        {
+          "algorithm": "ConformaSAC",
+          "environment": "CartPole-v1",
+          "passed": false,
+          "error": "array([0.13902075]) (<class 'numpy.ndarray'>) invalid"
+        },
+        {
+          "algorithm": "ConformaPPO",
+          "environment": "CartPole-v1",
+          "passed": false,
+          "error": "[INIT_FAILED] Agent initialization failed: TrainingError.__init__() got an unexpected keyword argument 'error_code'"
+        },
+        {
+          "algorithm": "ConformaSAC",
+          "environment": "Pendulum-v1",
+          "total_reward": -8.41546674703373,
+          "safety_violations": 0,
+          "avg_prediction_time": 9.226799011230469e-05,
+          "passed": true
+        },
+        {
+          "algorithm": "ConformaPPO",
+          "environment": "Pendulum-v1",
+          "total_reward": -57.94517926812814,
+          "safety_violations": 0,
+          "avg_prediction_time": 0.00010418891906738281,
+          "passed": true
+        }
+      ],
+      "passed_tests": 2,
+      "total_tests": 4,
+      "passed": false
+    },
+    {
+      "test": "safety_violation_analysis",
+      "passed": false,
+      "error": "TrajectoryData.__init__() missing 1 required positional argument: 'dones'"
+    },
+    {
+      "test": "performance_benchmark",
+      "performance_results": [
+        {
+          "batch_size": 1,
+          "total_time": 6.008148193359375e-05,
+          "avg_time_per_prediction": 6.008148193359375e-05,
+          "throughput": 16644.06349206349
+        },
+        {
+          "batch_size": 5,
+          "total_time": 0.00017309188842773438,
+          "avg_time_per_prediction": 3.461837768554687e-05,
+          "throughput": 28886.391184573004
+        },
+        {
+          "batch_size": 10,
+          "total_time": 0.0003685951232910156,
+          "avg_time_per_prediction": 3.685951232910156e-05,
+          "throughput": 27130.038809831825
+        },
+        {
+          "batch_size": 20,
+          "total_time": 0.0006186962127685547,
+          "avg_time_per_prediction": 3.0934810638427734e-05,
+          "throughput": 32326.04238921002
+        }
+      ],
+      "baseline_throughput": 16644.06349206349,
+      "scaling_efficient": true,
+      "passed": true
+    }
+  ],
+  "plots_generated": true
+}
