@@ -1,0 +1,38 @@
+groups:
+- name: conforl.rules
+  rules:
+  - alert: ConfoRLHighErrorRate
+    expr: rate(conforl_errors_total[5m]) > 0.1
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary: "ConfoRL error rate is high"
+      description: "Error rate is {{ $value }} errors per second"
+
+  - alert: ConfoRLHighLatency
+    expr: histogram_quantile(0.95, rate(conforl_request_duration_seconds_bucket[5m])) > 1.0
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "ConfoRL high latency"
+      description: "95th percentile latency is {{ $value }} seconds"
+
+  - alert: ConfoRLLowCacheHitRate
+    expr: conforl_cache_hit_rate < 0.8
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: "ConfoRL cache hit rate is low"
+      description: "Cache hit rate is {{ $value }}"
+
+  - alert: ConfoRLHighMemoryUsage
+    expr: process_resident_memory_bytes / 1024 / 1024 > 2048
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "ConfoRL memory usage is high"
+      description: "Memory usage is {{ $value }}MB"

@@ -1,0 +1,104 @@
+version: '3.8'
+
+services:
+  conforl-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.production.optimized
+    container_name: conforl-production
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - CONFORL_ENV=production
+      - CONFORL_LOG_LEVEL=INFO
+      - CONFORL_WORKERS=4
+      - CONFORL_MAX_REPLICAS=10
+    volumes:
+      - ./logs:/app/logs:rw
+      - ./models:/app/models:ro
+    networks:
+      - conforl-network
+    depends_on:
+      - redis
+      - prometheus
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+  redis:
+    image: redis:7-alpine
+    container_name: conforl-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - conforl-network
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: conforl-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - conforl-network
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: conforl-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana_dashboard.json:/etc/grafana/provisioning/dashboards/dashboard.json:ro
+    networks:
+      - conforl-network
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: conforl-jaeger
+    restart: unless-stopped
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - conforl-network
+
+networks:
+  conforl-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+  prometheus-data:
+  grafana-data:

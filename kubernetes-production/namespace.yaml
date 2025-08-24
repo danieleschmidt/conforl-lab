@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: conforl-production
+  labels:
+    name: conforl-production
+    environment: production
