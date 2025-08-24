@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: conforl-app
+  namespace: conforl-production
+  labels:
+    app: conforl
+    version: v1.0.0
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: conforl
+  template:
+    metadata:
+      labels:
+        app: conforl
+        version: v1.0.0
+    spec:
+      containers:
+      - name: conforl
+        image: conforl:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: CONFORL_ENV
+          value: "production"
+        - name: CONFORL_LOG_LEVEL
+          value: "INFO"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        volumeMounts:
+        - name: logs
+          mountPath: /app/logs
+        - name: models
+          mountPath: /app/models
+          readOnly: true
+      volumes:
+      - name: logs
+        persistentVolumeClaim:
+          claimName: conforl-logs-pvc
+      - name: models
+        persistentVolumeClaim:
+          claimName: conforl-models-pvc

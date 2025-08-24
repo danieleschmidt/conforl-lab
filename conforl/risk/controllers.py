@@ -43,6 +43,9 @@ except ImportError:
             sorted_data = sorted(data)
             idx = int(q / 100 * len(sorted_data))
             return sorted_data[min(idx, len(sorted_data) - 1)]
+        @staticmethod
+        def clip(value, min_val, max_val):
+            return max(min_val, min(max_val, value))
 from typing import Dict, List, Optional, Tuple, Union
 import time
 from collections import deque

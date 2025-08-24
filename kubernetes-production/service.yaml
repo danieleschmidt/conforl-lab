@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: conforl-service
+  namespace: conforl-production
+  labels:
+    app: conforl
+spec:
+  selector:
+    app: conforl
+  ports:
+  - port: 80
+    targetPort: 8000
+    protocol: TCP
+  type: ClusterIP
