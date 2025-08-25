@@ -886,6 +886,8 @@ class HealthStatus(Enum):
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
     CRITICAL = "critical"
+    WARNING = "warning"
+    UNKNOWN = "unknown"
 
 
 @dataclass

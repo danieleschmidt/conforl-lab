@@ -1,45 +1,59 @@
 #!/bin/bash
-# ConfoRL Production Deployment Script
-
 set -e
+
+# ConfoRL Production Deployment Script
 
 ENVIRONMENT=${1:-production}
 VERSION=${2:-latest}
+NAMESPACE="conforl"
 
-echo "🚀 Deploying ConfoRL $VERSION to $ENVIRONMENT"
+echo "🚀 Deploying ConfoRL to $ENVIRONMENT environment..."
+echo "Version: $VERSION"
+echo "Namespace: $NAMESPACE"
 
-# Build Docker image
-echo "🐳 Building Docker image..."
-docker build -f Dockerfile.production -t conforl:$VERSION .
-
-# Tag for registry
-if [ "$ENVIRONMENT" = "production" ]; then
-    docker tag conforl:$VERSION your-registry.com/conforl:$VERSION
-    docker push your-registry.com/conforl:$VERSION
+# Check if kubectl is available
+if ! command -v kubectl &> /dev/null; then
+    echo "❌ kubectl not found. Please install kubectl."
+    exit 1
 fi
 
-# Deploy based on environment
-case $ENVIRONMENT in
-    "local")
-        echo "🏠 Deploying locally with Docker Compose..."
-        docker-compose -f docker-compose.production.yml up -d
-        ;;
-    "staging"|"production")
-        echo "☸️ Deploying to Kubernetes ($ENVIRONMENT)..."
-        kubectl apply -f kubernetes/namespace.yaml
-        kubectl apply -f kubernetes/
-        kubectl set image deployment/conforl-app conforl=your-registry.com/conforl:$VERSION -n conforl
-        kubectl rollout status deployment/conforl-app -n conforl --timeout=300s
-        ;;
-    *)
-        echo "❌ Unknown environment: $ENVIRONMENT"
-        exit 1
-        ;;
-esac
+# Check if cluster is accessible
+if ! kubectl cluster-info &> /dev/null; then
+    echo "❌ Cannot connect to Kubernetes cluster."
+    exit 1
+fi
 
-# Health check
-echo "🏥 Performing health check..."
-sleep 30
-./scripts/health-check.sh $ENVIRONMENT
+# Create namespace if it doesn't exist
+kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
 
-echo "✅ Deployment completed successfully!"
+# Apply security policies
+echo "🔒 Applying security policies..."
+kubectl apply -f security/
+
+# Apply Kubernetes manifests
+echo "☸️ Applying Kubernetes manifests..."
+kubectl apply -f kubernetes/
+
+# Update image version
+kubectl set image deployment/conforl-app conforl=conforl:$VERSION -n $NAMESPACE
+
+# Wait for rollout to complete
+echo "⏳ Waiting for deployment to complete..."
+kubectl rollout status deployment/conforl-app -n $NAMESPACE --timeout=300s
+
+# Check deployment health
+echo "🏥 Checking deployment health..."
+kubectl get pods -n $NAMESPACE -l app=conforl
+
+# Run health checks
+HEALTH_CHECK_URL=$(kubectl get service conforl-service -n $NAMESPACE -o jsonpath='{.spec.clusterIP}')
+if kubectl run health-check --rm -i --restart=Never --image=curlimages/curl -- curl -f http://$HEALTH_CHECK_URL/health; then
+    echo "✅ ConfoRL deployment successful!"
+    echo "🌐 Service is healthy and ready to serve requests."
+else
+    echo "❌ Health check failed!"
+    exit 1
+fi
+
+echo "📊 Deployment summary:"
+kubectl get all -n $NAMESPACE
