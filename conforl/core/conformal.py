@@ -130,12 +130,18 @@ class SplitConformalPredictor(ConformalPredictor):
         """Default nonconformity score: absolute residual."""
         return np.abs(y_true - y_pred)
     
-    def calibrate(self, calibration_scores) -> None:
-        """Calibrate using split conformal method (simplified interface).
+    def calibrate(self, calibration_data=None, calibration_scores=None) -> None:
+        """Calibrate using split conformal method.
         
         Args:
+            calibration_data: Calibration inputs (unused in split method, for compatibility)
             calibration_scores: Precomputed nonconformity scores
         """
+        # Handle both old and new calling conventions
+        if calibration_data is not None and calibration_scores is None:
+            calibration_scores = calibration_data
+        elif calibration_scores is None:
+            raise ValueError("Must provide calibration_scores")
         self.calibration_size = len(calibration_scores)
         
         # Compute empirical quantile with finite-sample correction
