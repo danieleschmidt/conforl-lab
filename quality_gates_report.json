@@ -1,0 +1,96 @@
+{
+  "execution_time": 2.9618802070617676,
+  "gates_passed": 0,
+  "total_gates": 5,
+  "success_rate": 0.0,
+  "timestamp": 1756232821.029515,
+  "detailed_results": {
+    "testing": {
+      "test_execution": {
+        "core_tests": {
+          "exit_code": 0,
+          "stdout": "\ntests/test_core.py::TestTrajectoryData::test_episode_length_no_done PASSED [ 69%]\ntests/test_core.py::TestRiskCertificate::test_certificate_creation PASSED [ 76%]\ntests/test_core.py::TestRiskCertificate::test_certificate_with_metadata PASSED [ 84%]\ntests/test_core.py::TestConformalSet::test_conformal_set_creation PASSED [ 92%]\ntests/test_core.py::TestConformalSet::test_conformal_set_list_predictions PASSED [100%]\n\n============================== 13 passed in 0.12s ==============================\n",
+          "stderr": "",
+          "passed": true
+        },
+        "risk_tests": {
+          "exit_code": 0,
+          "passed": true
+        }
+      },
+      "coverage": {},
+      "linting": {},
+      "type_checking": {},
+      "import_validation": {
+        "conforl_version": "0.1.0",
+        "core_imports": true,
+        "algorithm_imports": true
+      }
+    },
+    "security": {
+      "input_validation": {
+        "tests_passed": 4,
+        "total_tests": 4,
+        "success_rate": 1.0
+      },
+      "path_traversal": {
+        "protected_paths": 3,
+        "total_tested": 4
+      },
+      "dependency_security": {},
+      "secrets_scanning": {}
+    },
+    "performance": {
+      "prediction_latency": {
+        "avg_latency_ms": 0.006897449493408203,
+        "target_latency_ms": 10.0,
+        "meets_target": true
+      },
+      "throughput": {
+        "predictions_per_second": 384158.88591906516,
+        "target_throughput": 1000,
+        "meets_target": true
+      },
+      "memory_usage": {},
+      "concurrent_performance": {
+        "total_concurrent_time": 0.009983539581298828,
+        "avg_task_time": 2.2995471954345704e-05,
+        "concurrent_efficiency": 0.04606677174380284,
+        "tasks_completed": 20
+      }
+    },
+    "integration": {
+      "end_to_end": {
+        "workflow_completed": true,
+        "certificate_generated": true,
+        "prediction_generated": true,
+        "risk_bound": 1.0
+      },
+      "api_integration": {},
+      "component_integration": {}
+    },
+    "documentation": {
+      "readme_validation": {
+        "exists": true,
+        "length": 12979,
+        "required_sections_found": 2,
+        "total_required_sections": 4,
+        "completeness": 0.5
+      },
+      "api_documentation": {
+        "classes_with_docstrings": 7,
+        "total_classes_checked": 7,
+        "key_classes_documented": 2,
+        "total_key_classes": 2
+      },
+      "code_documentation": {}
+    }
+  },
+  "summary": {
+    "testing": "\u274c FAILED",
+    "security": "\u274c FAILED",
+    "performance": "\u26a0\ufe0f NEEDS ATTENTION",
+    "integration": "\u274c FAILED",
+    "documentation": "\u26a0\ufe0f NEEDS ATTENTION"
+  }
+}

@@ -47,12 +47,29 @@ def mock_env():
 @pytest.fixture
 def sample_trajectory():
     """Sample trajectory data for testing."""
-    return {
-        'states': [[0.1, 0.2, 0.3, 0.4], [0.2, 0.3, 0.4, 0.5]],
-        'actions': [0, 1],
-        'rewards': [1.0, 1.0],
-        'dones': [False, True]
-    }
+    from conforl.core.types import TrajectoryData
+    
+    # Create 10-step trajectory as expected by tests
+    if NUMPY_AVAILABLE:
+        states = np.random.random((10, 4))
+        actions = np.random.randint(0, 2, 10)
+        rewards = np.random.random(10)
+        dones = np.array([False] * 9 + [True])  # Episode ends at step 10
+    else:
+        states = [[0.1, 0.2, 0.3, 0.4] for _ in range(10)]
+        actions = [0, 1, 0, 1, 0, 1, 0, 1, 0, 1]
+        rewards = [1.0] * 10
+        dones = [False] * 9 + [True]
+    
+    infos = [{'step': i} for i in range(10)]
+    
+    return TrajectoryData(
+        states=states,
+        actions=actions,
+        rewards=rewards,
+        dones=dones,
+        infos=infos
+    )
 
 @pytest.fixture
 def risk_config():
@@ -62,3 +79,25 @@ def risk_config():
         'confidence': 0.95,
         'window_size': 100
     }
+
+@pytest.fixture
+def mock_certificate():
+    """Mock risk certificate for testing."""
+    from conforl.core.types import RiskCertificate
+    import time
+    
+    return RiskCertificate(
+        risk_bound=0.05,
+        confidence=0.95,
+        coverage_guarantee=0.94,
+        method="test_method",
+        sample_size=100,
+        timestamp=time.time(),
+        metadata={"test": "data"}
+    )
+
+@pytest.fixture
+def risk_measure():
+    """Mock risk measure for testing."""
+    from conforl.risk.measures import SafetyViolationRisk
+    return SafetyViolationRisk()

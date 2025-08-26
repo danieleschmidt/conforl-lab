@@ -151,8 +151,9 @@ class TestCausalConformalRL:
         trajectory.states = [np.array([1, 2, 3]) for _ in range(10)]
         trajectory.actions = [np.array([0.5]) for _ in range(10)]
         trajectory.rewards = [0.1 * i for i in range(10)]
+        trajectory.infos = [{'constraint_violation': 0.0} for _ in range(10)]
         
-        risk_measure = SafetyViolationRisk(safety_threshold=0.5)
+        risk_measure = SafetyViolationRisk(violation_threshold=0.5)
         
         # Update controller
         causal_controller.update(trajectory, risk_measure)
@@ -427,7 +428,7 @@ class TestMultiAgentConformalRL:
         # Mock trajectory and risk measure
         trajectory = Mock(spec=TrajectoryData)
         trajectory.states = [np.array([1.0]) for _ in range(5)]
-        risk_measure = SafetyViolationRisk(safety_threshold=0.5)
+        risk_measure = SafetyViolationRisk(violation_threshold=0.5)
         
         # Update agents
         for i in range(6):  # Trigger consensus at update 5

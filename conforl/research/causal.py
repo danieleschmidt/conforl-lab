@@ -28,6 +28,13 @@ except ImportError:
         def mean(data):
             return sum(data) / len(data) if data else 0
         @staticmethod
+        def std(data):
+            if len(data) <= 1:
+                return 1.0
+            mean_val = sum(data) / len(data)
+            variance = sum((x - mean_val) ** 2 for x in data) / (len(data) - 1)
+            return variance ** 0.5
+        @staticmethod
         def maximum(a, b):
             return max(a, b)
 
@@ -986,6 +993,97 @@ class CausalRiskController:
 
 
 # Research Extensions
+
+class CausalShiftDetector:
+    """Detects causal distribution shifts in the environment."""
+    
+    def __init__(self, causal_graph: CausalGraph, detection_threshold: float = 0.05):
+        """Initialize causal shift detector.
+        
+        Args:
+            causal_graph: Causal graph structure
+            detection_threshold: P-value threshold for detecting shifts
+        """
+        self.causal_graph = causal_graph
+        self.detection_threshold = detection_threshold
+        self.baseline_distributions = {}
+        self.shift_history = []
+        logger.info("Causal shift detector initialized")
+    
+    def update_baseline(self, observations: Dict[str, Any]):
+        """Update baseline distributions for shift detection.
+        
+        Args:
+            observations: Current observations for each variable
+        """
+        for var, value in observations.items():
+            if var not in self.baseline_distributions:
+                self.baseline_distributions[var] = []
+            self.baseline_distributions[var].append(value)
+    
+    def detect_shift(self, observations: Dict[str, Any]) -> Dict[str, float]:
+        """Detect shifts in observed variables.
+        
+        Args:
+            observations: Current observations
+            
+        Returns:
+            Dictionary mapping variables to shift p-values (lower = more significant)
+        """
+        shifts = {}
+        
+        for var, value in observations.items():
+            if var in self.baseline_distributions:
+                baseline_values = self.baseline_distributions[var]
+                if len(baseline_values) > 10:  # Need sufficient baseline data
+                    # Compute simple shift detection based on z-score
+                    baseline_mean = np.mean(baseline_values)
+                    baseline_std = np.std(baseline_values) if len(baseline_values) > 1 else 1.0
+                    
+                    if baseline_std > 0:
+                        z_score = abs(value - baseline_mean) / baseline_std
+                        # Convert z-score to approximate p-value
+                        p_value = 2 * (1 - min(0.9999, z_score / 3.0))  # Rough approximation
+                        
+                        if p_value < self.detection_threshold:
+                            shifts[var] = p_value
+        
+        if shifts:
+            self.shift_history.append({
+                'timestamp': time.time(),
+                'detected_shifts': shifts,
+                'observations': observations
+            })
+            logger.info(f"Detected causal shifts in variables: {list(shifts.keys())}")
+        
+        return shifts
+    
+    def get_shift_summary(self) -> Dict[str, Any]:
+        """Get summary of detected shifts.
+        
+        Returns:
+            Dictionary with shift detection statistics
+        """
+        if not self.shift_history:
+            return {
+                'total_shifts_detected': 0,
+                'variables_with_shifts': [],
+                'last_shift_time': None,
+                'shift_frequency': 0.0
+            }
+        
+        # Count unique variables that have had shifts
+        variables_with_shifts = set()
+        for entry in self.shift_history:
+            variables_with_shifts.update(entry['detected_shifts'].keys())
+        
+        return {
+            'total_shifts_detected': len(self.shift_history),
+            'variables_with_shifts': list(variables_with_shifts),
+            'last_shift_time': self.shift_history[-1]['timestamp'] if self.shift_history else None,
+            'shift_frequency': len(self.shift_history) / max(1, len(self.baseline_distributions))
+        }
+
 
 class CounterfactualRiskAssessment:
     """Assess risk under counterfactual scenarios."""
